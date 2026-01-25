@@ -1,0 +1,10 @@
+spring:
+  application:
+    name: spring-ai-zoujiahui
+  ai:
+    deepseek:
+      api-key: 'sk-54aa6dc632a1413dac9e3cd9236b3381'
+      base-url: 'https://api.deepseek.com'
+logging:
+  file:
+    name: ./logs/spring-ai.log  # 日志将保存在项目根目录下的 logs 文件夹中
