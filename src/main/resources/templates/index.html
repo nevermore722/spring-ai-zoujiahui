@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>赛博命理局 - AI 多轮占卜</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: #050505; color: #a5b4fc; font-family: system-ui; }
+    .chat-container { height: 60vh; overflow-y: auto; scroll-behavior: smooth; }
+    .message-ai { border-left: 2px solid #6366f1; background: rgba(99, 102, 241, 0.05); }
+    .message-user { border-right: 2px solid #ec4899; background: rgba(236, 72, 153, 0.05); text-align: right; }
+    /* 隐藏滚动条 */
+    .chat-container::-webkit-scrollbar { width: 4px; }
+    .chat-container::-webkit-scrollbar-thumb { background: #312e81; border-radius: 10px; }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+<div class="w-full max-w-2xl bg-zinc-900/50 rounded-3xl p-6 border border-zinc-800 shadow-2xl backdrop-blur-md">
+  <header class="text-center mb-6">
+    <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-fuchsia-500 bg-clip-text text-transparent">赛博命理局</h1>
+    <p class="text-xs text-zinc-500 mt-1 italic">量子算力 · 洞悉因果</p>
+  </header>
+
+  <!-- 对话展示区 -->
+  <div id="chatBox" class="chat-container space-y-4 mb-6 p-2">
+    <div class="message-ai p-4 rounded-r-xl rounded-bl-xl text-sm">
+      尊驾降临，请报上名讳与生辰，待吾开启量子卦盘。
+    </div>
+  </div>
+
+  <!-- 输入控制区 -->
+  <div class="relative">
+    <input type="text" id="userInput"
+           class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-indigo-500 transition-all pr-16"
+           placeholder="在此输入您的问题...">
+    <button onclick="sendMessage()" id="sendBtn"
+            class="absolute right-2 top-2 bottom-2 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-xs font-bold transition-all">
+      发送
+    </button>
+  </div>
+</div>
+
+<script>
+  // 生成唯一的会话ID
+  const chatId = 'user_' + Math.random().toString(36).substr(2, 9);
+  const chatBox = document.getElementById('chatBox');
+  const userInput = document.getElementById('userInput');
+  const sendBtn = document.getElementById('sendBtn');
+
+  async function sendMessage() {
+    const text = userInput.value.trim();
+    if (!text) return;
+
+    // 1. 添加用户消息到界面
+    appendMessage('user', text);
+    userInput.value = '';
+    setLoading(true);
+
+    // 2. 创建 AI 回复占位符
+    const aiMsgDiv = appendMessage('ai', '');
+
+    try {
+      // 3. 调用流式接口
+      const response = await fetch(`/api/ai/stream/history?chatId=${chatId}&message=${encodeURIComponent(text)}`);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value);
+        aiMsgDiv.innerText += chunk;
+        chatBox.scrollTop = chatBox.scrollHeight;
+      }
+    } catch (err) {
+      aiMsgDiv.innerText = "【断脉】天机紊乱，请稍后再试。";
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function appendMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `p-4 rounded-xl text-sm animate-in fade-in slide-in-from-bottom-2 duration-300 ${role === 'user' ? 'message-user ml-auto max-w-[80%]' : 'message-ai mr-auto max-w-[80%]'}`;
+    div.innerText = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return div;
+  }
+
+  function setLoading(isLoading) {
+    sendBtn.disabled = isLoading;
+    sendBtn.innerText = isLoading ? "计算中" : "发送";
+    userInput.disabled = isLoading;
+  }
+
+  // 绑定回车键
+  userInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+</script>
+</body>
+</html>
