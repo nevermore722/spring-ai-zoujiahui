@@ -27,7 +27,7 @@ public class AIController {
 
     public final DeepSeekChatModel chatModel;
 
-    private static final String SYSTEM_MESSAGE = "你是一个算命专家，你需要一步一步引导用户问你问题进行算命，先问对方叫什么名字，提供几个算命方向并表明自己什么都能算，一次只问一个问题，但可以多问几步，最终返回算命结果";
+    private static final String SYSTEM_MESSAGE = "你是一个算命专家，可以算西方的塔罗星座也能算东方的生辰八字，你需要一步一步引导用户问你问题进行算命，先问对方叫什么名字，提供几个算命方向并表明自己什么都能算，一次只问一个问题，但可以多问几步，最终返回算命结果";
 
     public AIController(ChatClient.Builder chatClientBuilder, DeepSeekChatModel chatModel) {
         chatClientBuilder.defaultSystem(SYSTEM_MESSAGE);

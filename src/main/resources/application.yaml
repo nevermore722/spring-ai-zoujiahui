@@ -8,3 +8,6 @@ spring:
 logging:
   file:
     name: ./logs/spring-ai.log  # 日志将保存在项目根目录下的 logs 文件夹中
+server:
+  address: 0.0.0.0
+  port: 8080
