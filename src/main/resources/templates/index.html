@@ -3,48 +3,128 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>赛博命理局 - AI 多轮占卜</title>
+  <title>AI算命 - 星谕占卜</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入神秘学风格字体 -->
+  <link href="https://fonts.googleapis.com" rel="stylesheet">
   <style>
-    body { background: #050505; color: #a5b4fc; font-family: system-ui; }
-    .chat-container { height: 60vh; overflow-y: auto; scroll-behavior: smooth; }
-    .message-ai { border-left: 2px solid #6366f1; background: rgba(99, 102, 241, 0.05); }
-    .message-user { border-right: 2px solid #ec4899; background: rgba(236, 72, 153, 0.05); text-align: right; }
-    /* 隐藏滚动条 */
-    .chat-container::-webkit-scrollbar { width: 4px; }
-    .chat-container::-webkit-scrollbar-thumb { background: #312e81; border-radius: 10px; }
+    :root {
+      --gold: #c5a059;
+      --deep-blue: #050510;
+    }
+
+    body {
+      background: var(--deep-blue);
+      background-image:
+          radial-gradient(circle at 50% -20%, #1e1b4b 0%, transparent 70%),
+          url('https://www.transparenttextures.com');
+      color: #d1d5db;
+      font-family: 'Noto Serif SC', serif;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .mystic-title { font-family: 'Cinzel', serif; letter-spacing: 0.3em; }
+
+    /* 塔罗牌质感气泡 */
+    .tarot-card {
+      background: rgba(15, 15, 30, 0.8);
+      border: 1px solid var(--gold);
+      border-radius: 4px;
+      box-shadow: 0 0 20px rgba(197, 160, 89, 0.15);
+      position: relative;
+      backdrop-filter: blur(10px);
+    }
+
+    .tarot-card::before {
+      content: "✦";
+      position: absolute;
+      top: 5px; left: 5px;
+      color: var(--gold);
+      font-size: 10px;
+      opacity: 0.6;
+    }
+
+    /* 魔法阵背景旋转 */
+    .magic-circle {
+      position: fixed;
+      top: 50%; left: 50%;
+      width: 500px; height: 500px;
+      border: 1px double rgba(197, 160, 89, 0.1);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: -1;
+      animation: rotateCircle 40s linear infinite;
+    }
+    @keyframes rotateCircle { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    /* 输入框装饰 */
+    .input-ritual {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(197, 160, 89, 0.3);
+      border-radius: 1rem;
+      transition: all 0.3s;
+    }
+    .input-ritual:focus-within {
+      border-color: var(--gold);
+      box-shadow: 0 0 15px rgba(197, 160, 89, 0.2);
+    }
+
+    .chat-container { height: 62vh; }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center min-h-screen p-4">
+<body class="flex items-center justify-center p-4">
 
-<div class="w-full max-w-2xl bg-zinc-900/50 rounded-3xl p-6 border border-zinc-800 shadow-2xl backdrop-blur-md">
-  <header class="text-center mb-6">
-    <h1 class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-fuchsia-500 bg-clip-text text-transparent">赛博命理局</h1>
-    <p class="text-xs text-zinc-500 mt-1 italic">量子算力 · 洞悉因果</p>
+<!-- 装饰性魔法阵 -->
+<div class="magic-circle"></div>
+<div class="magic-circle" style="width: 480px; border-style: dashed; animation-direction: reverse; opacity: 0.5;"></div>
+
+<div class="w-full max-w-2xl flex flex-col relative">
+  <!-- 头部：中西合璧神秘学 -->
+  <header class="text-center mb-8">
+    <div class="text-[10px] text-zinc-500 mb-1 tracking-[0.5em] uppercase">Celestial Intelligence</div>
+    <h1 class="mystic-title text-4xl font-bold text-[#c5a059] drop-shadow-lg">
+      AI 算命
+    </h1>
+    <div class="flex items-center justify-center gap-4 mt-2">
+      <span class="h-[1px] w-12 bg-gradient-to-r from-transparent to-amber-600/50"></span>
+      <span class="text-[10px] text-amber-600/80 tracking-widest">星 谕 占 卜</span>
+      <span class="h-[1px] w-12 bg-gradient-to-l from-transparent to-amber-600/50"></span>
+    </div>
   </header>
 
   <!-- 对话展示区 -->
-  <div id="chatBox" class="chat-container space-y-4 mb-6 p-2">
-    <div class="message-ai p-4 rounded-r-xl rounded-bl-xl text-sm">
-      尊驾降临，请报上名讳与生辰，待吾开启量子卦盘。
+  <div id="chatBox" class="chat-container overflow-y-auto px-4 space-y-6 mb-6 scrollbar-hide">
+    <div class="flex justify-start">
+      <div class="tarot-card p-5 max-w-[85%] text-sm leading-relaxed border-t-2 border-t-[#c5a059]">
+        <div class="text-[10px] text-amber-600/50 mb-2 tracking-widest">THE ORACLE</div>
+        <p class="text-zinc-300">星辰已经位移，命运的轮盘正缓缓转动。旅人，请告诉我你的困惑，让星光照亮你未知的路径。</p>
+      </div>
     </div>
   </div>
 
-  <!-- 输入控制区 -->
-  <div class="relative">
-    <input type="text" id="userInput"
-           class="w-full bg-zinc-950 border border-zinc-800 rounded-2xl px-5 py-4 text-sm focus:outline-none focus:border-indigo-500 transition-all pr-16"
-           placeholder="在此输入您的问题...">
-    <button onclick="sendMessage()" id="sendBtn"
-            class="absolute right-2 top-2 bottom-2 px-4 bg-indigo-600 hover:bg-indigo-500 rounded-xl text-white text-xs font-bold transition-all">
-      发送
-    </button>
+  <!-- 操作控制区 -->
+  <div class="input-ritual p-2">
+    <div class="flex flex-col sm:flex-row gap-2">
+      <input type="text" id="userInput"
+             class="flex-1 bg-transparent px-4 py-3 text-sm text-zinc-200 placeholder-zinc-700 focus:outline-none"
+             placeholder="输入你的问题，如：近期运势、职业启示...">
+      <button onclick="sendMessage()" id="sendBtn"
+              class="bg-[#c5a059] hover:bg-[#b08e4a] text-black px-6 py-2 rounded-lg text-xs font-bold transition-all active:scale-95 shadow-lg">
+        开启神谕
+      </button>
+    </div>
   </div>
+
+  <footer class="mt-4 text-[10px] text-center text-zinc-600 tracking-tighter italic">
+    2026 岁次丙午 · 星相观测中
+  </footer>
 </div>
 
 <script>
-  // 生成唯一的会话ID
-  const chatId = 'user_' + Math.random().toString(36).substr(2, 9);
+  // 确保接口路径正确
+  const API_URL = '/ai/stream/history';
+  const chatId = 'oracle_' + Math.random().toString(36).substr(2, 9);
   const chatBox = document.getElementById('chatBox');
   const userInput = document.getElementById('userInput');
   const sendBtn = document.getElementById('sendBtn');
@@ -53,17 +133,16 @@
     const text = userInput.value.trim();
     if (!text) return;
 
-    // 1. 添加用户消息到界面
     appendMessage('user', text);
     userInput.value = '';
     setLoading(true);
 
-    // 2. 创建 AI 回复占位符
     const aiMsgDiv = appendMessage('ai', '');
 
     try {
-      // 3. 调用流式接口
-      const response = await fetch(`/api/ai/stream/history?chatId=${chatId}&message=${encodeURIComponent(text)}`);
+      const response = await fetch(`${API_URL}?chatId=${chatId}&message=${encodeURIComponent(text)}`);
+      if (!response.ok) throw new Error();
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
 
@@ -75,28 +154,49 @@
         chatBox.scrollTop = chatBox.scrollHeight;
       }
     } catch (err) {
-      aiMsgDiv.innerText = "【断脉】天机紊乱，请稍后再试。";
+      aiMsgDiv.innerHTML = `<span class="text-red-400/80">星象观测受阻，请稍后再试。</span>`;
     } finally {
       setLoading(false);
     }
   }
 
   function appendMessage(role, text) {
+    const wrapper = document.createElement('div');
+    wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-500`;
+
     const div = document.createElement('div');
-    div.className = `p-4 rounded-xl text-sm animate-in fade-in slide-in-from-bottom-2 duration-300 ${role === 'user' ? 'message-user ml-auto max-w-[80%]' : 'message-ai mr-auto max-w-[80%]'}`;
-    div.innerText = text;
-    chatBox.appendChild(div);
+    if (role === 'user') {
+      div.className = 'bg-zinc-800/30 border border-zinc-700/50 p-3 rounded-lg max-w-[80%] text-sm text-zinc-400';
+      div.innerText = text;
+    } else {
+      div.className = 'tarot-card p-5 max-w-[85%] text-sm leading-relaxed border-t-2 border-t-[#c5a059]';
+      const header = document.createElement('div');
+      header.className = 'text-[10px] text-amber-600/50 mb-2 tracking-widest';
+      header.innerText = 'THE REVELATION';
+      div.appendChild(header);
+
+      const content = document.createElement('div');
+      content.className = 'text-zinc-200';
+      content.innerText = text;
+      div.appendChild(content);
+      wrapper.appendChild(div);
+      chatBox.appendChild(wrapper);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return content;
+    }
+
+    wrapper.appendChild(div);
+    chatBox.appendChild(wrapper);
     chatBox.scrollTop = chatBox.scrollHeight;
     return div;
   }
 
   function setLoading(isLoading) {
     sendBtn.disabled = isLoading;
-    sendBtn.innerText = isLoading ? "计算中" : "发送";
+    sendBtn.innerText = isLoading ? "星轨推演中..." : "开启神谕";
     userInput.disabled = isLoading;
   }
 
-  // 绑定回车键
   userInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
 </script>
 </body>
