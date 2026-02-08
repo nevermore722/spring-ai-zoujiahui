@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>全知智域 - 多维对话</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --accent: #a855f7; }
+        body { background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        /* 毛玻璃背景 */
+        .glass-header {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(0,0,0,0.05);
+        }
+
+        /* 消息气泡动画 */
+        .message-fade { animation: fadeInUp 0.3s ease-out forwards; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 自定义滚动条 */
+        .chat-container::-webkit-scrollbar { width: 4px; }
+        .chat-container::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+        /* 输入框聚焦效果 */
+        .input-focus:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1); }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+<!-- 顶部状态栏 -->
+<header class="glass-header sticky top-0 z-10 px-4 py-3 flex items-center justify-between">
+    <button onclick="history.back()" class="p-2 hover:bg-gray-100 rounded-full transition">
+        <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+    </button>
+
+    <div class="flex-1 flex justify-center">
+        <div class="bg-gray-100 p-1 rounded-xl flex gap-1">
+            <select id="modelPicker" class="bg-transparent text-sm font-bold text-gray-700 px-3 py-1 outline-none cursor-pointer">
+                <option value="deepseek">DeepSeek-V3</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="openai">ChatGPT 4o</option>
+            </select>
+        </div>
+    </div>
+
+    <button onclick="location.reload()" class="p-2 hover:bg-gray-100 rounded-full transition">
+        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+    </button>
+</header>
+
+<!-- 对话主容器 -->
+<main id="chatWindow" class="flex-1 overflow-y-auto p-4 space-y-6 chat-container">
+    <!-- 助手欢迎语 -->
+    <div class="flex items-end gap-2 message-fade">
+        <div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs shadow-lg">AI</div>
+        <div class="max-w-[80%] bg-white p-4 rounded-2xl rounded-bl-none shadow-sm border border-gray-100 text-gray-800 leading-relaxed">
+            你好！我是你的多维 AI 助手。我已经准备好回答关于 <span id="currentModelName" class="text-purple-600 font-bold">DeepSeek</span> 的任何问题了。
+        </div>
+    </div>
+</main>
+
+<!-- 输入区 -->
+<footer class="p-4 bg-white border-t border-gray-100">
+    <div class="max-w-4xl mx-auto flex items-end gap-2 bg-gray-50 p-2 rounded-2xl border-2 border-transparent transition-all input-focus">
+            <textarea id="userInput" rows="1" placeholder="问问我任何事..."
+                      class="flex-1 bg-transparent border-none focus:ring-0 p-2 text-gray-700 resize-none max-h-32 overflow-y-auto"></textarea>
+
+        <button id="sendBtn" onclick="handleSend()" class="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-xl transition shadow-md disabled:opacity-50">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+        </button>
+    </div>
+    <p class="text-[10px] text-center text-gray-400 mt-2 tracking-widest uppercase">Powered by Hybrid Intelligence</p>
+</footer>
+
+<script>
+    let currentChatId = 'chat_' + Math.random().toString(36).substr(2, 9);
+    const chatWindow = document.getElementById('chatWindow');
+    const userInput = document.getElementById('userInput');
+    const modelPicker = document.getElementById('modelPicker');
+
+    // 监听模型切换
+    modelPicker.addEventListener('change', (e) => {
+        document.getElementById('currentModelName').innerText = e.target.options[e.target.selectedIndex].text;
+        // 切换模型时通常建议重置对话ID
+        currentChatId = 'chat_' + Math.random().toString(36).substr(2, 9);
+    });
+
+    async function handleSend() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        // 1. UI: 用户消息
+        appendMessage('user', text);
+        userInput.value = '';
+        userInput.style.height = 'auto';
+
+        // 2. UI: 思考状态
+        const loadingId = appendMessage('ai', '<div class="flex gap-1"><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div></div>');
+
+        try {
+            // 3. 调用后端
+            // 根据你的逻辑，如果不同模型对应不同接口，可以在这里切换 URL
+            // 如果后端统一处理，则只需要传参数
+            const modelType = modelPicker.value;
+            const response = await fetch(`/ai/app/${modelType}?message=${encodeURIComponent(text)}&chatId=${currentChatId}`, {
+                method: 'GET' // 如果你后端是 @RequestParam，通常用 GET 或 POST 拼参数
+            });
+
+            const data = await response.text(); // 假设返回的是纯文本内容
+            updateMessage(loadingId, data);
+
+        } catch (error) {
+            updateMessage(loadingId, "连接中断，请稍后重试。");
+        }
+    }
+
+    function appendMessage(role, content) {
+        const id = 'msg_' + Date.now();
+        const isUser = role === 'user';
+        const html = `
+                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-2 message-fade">
+                    ${!isUser ? '<div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs shadow-lg">AI</div>' : ''}
+                    <div id="${id}" class="max-w-[80%] p-4 rounded-2xl ${isUser ? 'bg-purple-600 text-white rounded-br-none shadow-purple-100' : 'bg-white text-gray-800 rounded-bl-none border border-gray-100 shadow-sm'}">
+                        ${content}
+                    </div>
+                </div>
+            `;
+        chatWindow.insertAdjacentHTML('beforeend', html);
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        return id;
+    }
+
+    function updateMessage(id, content) {
+        const el = document.getElementById(id);
+        if (el) el.innerHTML = content;
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    // 回车发送 (Shift+Enter换行)
+    userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleSend();
+        }
+    });
+</script>
+</body>
+</html>

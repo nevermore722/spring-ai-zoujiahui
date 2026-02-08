@@ -44,4 +44,9 @@ public class AIApplicationController {
     public Flux<String> girlfriend(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
         return friendsChat.girlfriend(message, chatId);
     }
+
+    @GetMapping(value = "/deepseek", produces = "text/html;charset=UTF-8")
+    public Flux<String> deepseek(@RequestParam(value = "message", defaultValue = "你好") String message, @RequestParam String chatId) {
+        return friendsChat.girlfriend(message, chatId);
+    }
 }
