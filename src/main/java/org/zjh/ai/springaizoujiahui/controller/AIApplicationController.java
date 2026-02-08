@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.zjh.ai.springaizoujiahui.service.FortuneTelling;
 import org.zjh.ai.springaizoujiahui.service.FriendsChat;
+import org.zjh.ai.springaizoujiahui.service.GeneralAI;
 import reactor.core.publisher.Flux;
 
 /**
@@ -25,9 +26,12 @@ public class AIApplicationController {
 
     private final FriendsChat friendsChat;
 
-    public AIApplicationController(FortuneTelling fortuneTelling, FriendsChat friendsChat) {
+    private final GeneralAI generalAI;
+
+    public AIApplicationController(FortuneTelling fortuneTelling, FriendsChat friendsChat, GeneralAI generalAI) {
         this.fortuneTelling = fortuneTelling;
         this.friendsChat = friendsChat;
+        this.generalAI = generalAI;
     }
 
     @GetMapping(value = "/fortuneTelling", produces = "text/html;charset=UTF-8")
@@ -47,6 +51,6 @@ public class AIApplicationController {
 
     @GetMapping(value = "/deepseek", produces = "text/html;charset=UTF-8")
     public Flux<String> deepseek(@RequestParam(value = "message", defaultValue = "你好") String message, @RequestParam String chatId) {
-        return friendsChat.girlfriend(message, chatId);
+        return generalAI.deepseek(message, chatId);
     }
 }
