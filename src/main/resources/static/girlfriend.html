@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>云汐 - 你的温柔女友</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body, html { height: 100svh; margin: 0; font-family: -apple-system, sans-serif; overflow: hidden; }
+        /* 背景：梦幻粉紫渐变 */
+        .bg-glass {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #fff5f5 0%, #fef2f2 100%);
+            z-index: -2;
+        }
+        .bg-decoration {
+            position: fixed; top: -10%; right: -10%; width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(255,182,193,0.2) 0%, transparent 70%);
+            filter: blur(50px); z-index: -1;
+        }
+        /* 微信气泡样式 */
+        .chat-bubble { position: relative; max-width: 78%; padding: 12px 16px; font-size: 15px; line-height: 1.6; }
+        .bubble-ai { background: #ffffff; color: #333; margin-left: 10px; border-radius: 4px 16px 16px 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
+        .bubble-user { background: #fee2e2; color: #4b1a1a; margin-right: 10px; border-radius: 16px 4px 16px 16px; }
+
+        /* 打字动画 */
+        .typing-dot { width: 4px; height: 4px; background: #fca5a5; border-radius: 50%; display: inline-block; animation: blink 1.4s infinite both; margin: 0 1px; }
+        @keyframes blink { 0%, 100% { opacity: .2; } 20% { opacity: 1; } }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="flex flex-col">
+<div class="bg-glass"></div>
+<div class="bg-decoration"></div>
+
+<header class="flex items-center justify-between px-4 py-4 bg-white/60 backdrop-blur-md border-b border-pink-100 sticky top-0 z-10">
+    <a href="/" class="text-pink-400 text-xl">〈</a>
+    <div class="text-center">
+        <div class="font-bold text-gray-800 tracking-wide">云汐 🌸</div>
+        <div class="text-[10px] text-pink-400 animate-pulse">● 正在想你...</div>
+    </div>
+    <div class="w-6"></div>
+</header>
+
+<main id="chatBox" class="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-10"></main>
+
+<footer class="bg-white/80 backdrop-blur-lg border-t border-pink-50 p-4 pb-8">
+    <div class="flex items-end gap-3 max-w-3xl mx-auto">
+            <textarea id="userInput" rows="1"
+                      class="flex-1 bg-gray-50 border-none rounded-2xl p-3 text-sm focus:ring-1 focus:ring-pink-200 resize-none max-h-32"
+                      placeholder="跟云汐说点什么..."></textarea>
+        <button id="actionBtn" onclick="handleAction()"
+                class="bg-pink-400 hover:bg-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 shadow-md shadow-pink-100">
+            唤醒她
+        </button>
+    </div>
+</footer>
+
+<script>
+    let interactionLocked = false; // 状态锁
+    const chatBox = document.getElementById('chatBox');
+    const userInput = document.getElementById('userInput');
+    const actionBtn = document.getElementById('actionBtn');
+    const API_URL = '/ai/app/girlfriend';
+    const chatId = 'girl_' + Math.random().toString(36).substr(2, 9);
+
+    // 监听输入逻辑：互动后永远显示“发送”
+    userInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+
+        if (interactionLocked || this.value.trim().length > 0) {
+            actionBtn.innerText = "发送";
+        } else {
+            actionBtn.innerText = "唤醒她";
+        }
+    });
+
+    async function handleAction() {
+        const text = userInput.value.trim();
+        const currentBtnText = actionBtn.innerText;
+
+        // 只要点击一次，永久锁定状态
+        interactionLocked = true;
+        actionBtn.innerText = "发送";
+
+        if (currentBtnText === "唤醒她" && text === "") {
+            // AI 主动发起
+            await sendRequest("云汐，作为我的女朋友，请温柔地跟我说句话吧。");
+        } else if (text !== "") {
+            // 用户发送
+            appendMessage('user', text);
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            await sendRequest(text);
+        }
+    }
+
+    async function sendRequest(msg) {
+        const wrapper = appendMessage('ai', '');
+        const contentDiv = wrapper.querySelector('.content');
+        contentDiv.innerHTML = '<span class="typing-dot"></span><span class="typing-dot" style="animation-delay:0.2s"></span><span class="typing-dot" style="animation-delay:0.4s"></span>';
+
+        try {
+            const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
+            const response = await fetch(url);
+            if (!response.ok) throw new Error();
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            contentDiv.innerText = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                contentDiv.innerText += decoder.decode(value);
+                chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+            }
+        } catch (err) {
+            contentDiv.innerHTML = '<span class="text-pink-300 text-xs italic">云汐正在午睡，稍后再找她吧~</span>';
+        }
+    }
+
+    function appendMessage(role, text) {
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} mb-2 items-start`;
+
+        const avatar = document.createElement('img');
+        avatar.className = `w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-white shadow-sm`;
+        // 头像路径：AI是女生，用户是男生
+        avatar.src = role === 'ai' ? '/girl.jfif' : '/boy.jfif';
+
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble ${role === 'ai' ? 'bubble-ai' : 'bubble-user'}`;
+
+        const content = document.createElement('div');
+        content.className = 'content';
+        content.innerText = text;
+
+        bubble.appendChild(content);
+        if (role === 'ai') {
+            wrapper.appendChild(avatar);
+            wrapper.appendChild(bubble);
+        } else {
+            // 用户消息：头像在右边
+            wrapper.appendChild(bubble);
+            wrapper.appendChild(avatar);
+        }
+
+        chatBox.appendChild(wrapper);
+        chatBox.scrollTop = chatBox.scrollHeight;
+        return wrapper;
+    }
+</script>
+</body>
+</html>

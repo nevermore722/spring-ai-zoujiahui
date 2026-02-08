@@ -3,276 +3,85 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>星谕 - 开启你的命运启示</title>
+  <title>星谕 - 开启奇妙对话</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com" rel="stylesheet">
   <style>
-    :root {
-      --star-color: #ffffff;
-      --nebula-blue: #0a1128;
-      --magic-gold: #e2c08d;
-      --mystic-purple: #1a0b2e;
+    body {
+      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
+      font-family: 'Noto Sans SC', sans-serif;
+      min-height: 100vh;
+      color: #333;
     }
-
-    body, html {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
-      color: #e5e7eb;
-      font-family: 'Noto Serif SC', serif;
+    .portal-card {
+      background: rgba(255, 255, 255, 0.7);
+      backdrop-filter: blur(10px);
+      border: 2px solid transparent;
+      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
     }
-
-    /* 动态背景画布 */
-    #starCanvas {
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: -1;
-      background: linear-gradient(to bottom, #050b18, #0a1128);
+    .portal-card:hover {
+      transform: translateY(-5px);
+      border-color: var(--clr);
+      background: white;
+      box-shadow: 0 20px 30px -10px var(--shadow);
     }
-
-    /* 流星动画 */
-    .shooting-star {
-      position: absolute;
-      width: 100px;
-      height: 1px;
-      background: linear-gradient(90deg, white, transparent);
-      animation: shoot 3s linear infinite;
-      opacity: 0;
+    /* 装饰背景圆圈 */
+    .deco-circle {
+      position: fixed; border-radius: 50%; z-index: -1; filter: blur(60px); opacity: 0.4;
     }
-
-    @keyframes shoot {
-      0% { transform: translateX(0) translateY(0) rotate(-45deg); opacity: 0; }
-      10% { opacity: 1; }
-      30% { transform: translateX(-500px) translateY(500px) rotate(-45deg); opacity: 0; }
-      100% { opacity: 0; }
-    }
-
-    /* 旋转星盘 */
-    .astrolabe {
-      position: fixed;
-      bottom: -150px;
-      right: -150px;
-      width: 400px;
-      height: 400px;
-      border: 1px solid rgba(226, 192, 141, 0.1);
-      border-radius: 50%;
-      animation: spin 60s linear infinite;
-      z-index: 0;
-      pointer-events: none;
-    }
-
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-
-    /* 塔罗质感消息框 */
-    .glass-morphism {
-      background: rgba(10, 20, 40, 0.6);
-      backdrop-filter: blur(15px);
-      border: 1px solid rgba(226, 192, 141, 0.2);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
-    }
-
-    .user-msg {
-      background: rgba(67, 56, 202, 0.2);
-      border-right: 3px solid var(--magic-gold);
-    }
-
-    .oracle-msg {
-      border-left: 3px solid var(--magic-gold);
-      position: relative;
-      overflow: hidden;
-    }
-
-    .oracle-msg::after {
-      content: '';
-      position: absolute;
-      top: 0; left: 0; right: 0; height: 1px;
-      background: linear-gradient(90deg, transparent, var(--magic-gold), transparent);
-    }
-
-    /* 打字机光标 */
-    .typing::after {
-      content: '✦';
-      animation: blink 1s infinite;
-      color: var(--magic-gold);
-      margin-left: 4px;
-    }
-
-    @keyframes blink { 0%, 100% { opacity: 0; } 50% { opacity: 1; } }
-
-    /* 隐藏滚动条 */
-    .no-scrollbar::-webkit-scrollbar { display: none; }
   </style>
 </head>
-<body class="flex flex-col h-screen">
-<canvas id="starCanvas"></canvas>
+<body class="flex flex-col items-center justify-center p-6 overflow-hidden">
+<!-- 背景装饰 -->
+<div class="deco-circle bg-yellow-200 w-64 h-64 -top-20 -left-20"></div>
+<div class="deco-circle bg-pink-200 w-80 h-80 -bottom-20 -right-20"></div>
+<div class="deco-circle bg-blue-200 w-40 h-40 top-1/2 left-1/4"></div>
 
-<!-- 流星层 -->
-<div class="shooting-star" style="top: 10%; right: 10%; animation-delay: 0s;"></div>
-<div class="shooting-star" style="top: 30%; right: -5%; animation-delay: 4s;"></div>
-<div class="astrolabe"></div>
+<div class="text-center mb-10">
+  <h1 class="text-3xl font-bold tracking-tight text-gray-800 mb-2">遇见另一个维度</h1>
+  <p class="text-sm text-gray-400 tracking-widest uppercase">Select Your Dimension</p>
+</div>
 
-<!-- 顶部标题区 -->
-<header class="pt-10 pb-4 px-6 text-center z-10">
-  <div class="flex justify-center items-center gap-2 mb-1">
-    <span class="text-[10px] text-blue-400 tracking-[0.4em] uppercase">The Celestial Voice</span>
-  </div>
-  <h1 class="text-3xl font-bold tracking-widest text-[#e2c08d]" style="font-family: 'Cinzel', serif;">AI算命</h1>
-  <div class="text-[10px] text-blue-300/60 mt-1 italic">—— 窥探星辰编织的万物真相 ——</div>
-</header>
-
-<!-- 主对话区 -->
-<main id="chatBox" class="flex-1 overflow-y-auto px-4 py-4 space-y-6 no-scrollbar z-10">
-  <!-- 初始欢迎语 -->
-  <div class="flex justify-start">
-    <div class="glass-morphism p-4 rounded-tr-2xl rounded-br-2xl max-w-[90%] oracle-msg">
-      <div class="text-[9px] text-[#e2c08d] mb-1 tracking-widest uppercase">The Beginning</div>
-      <p class="text-sm leading-relaxed text-blue-100">
-        欢迎，寻求启示的旅人。我是星谕，能感知此间万物的能量。
-        <br><br>
-        无论是<span class="text-[#e2c08d]">事业走向、情感宿命、还是梦境解析</span>，亦或是今日的一点微光指引，请尽管向星空垂询。
-      </p>
+<div class="grid gap-5 w-full max-w-sm">
+  <!-- 算命入口 -->
+  <div onclick="navigateTo('fortune.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #e2c08d; --shadow: rgba(226, 192, 141, 0.3)">
+    <div class="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center text-2xl shadow-inner">🔮</div>
+    <div>
+      <h2 class="text-gray-800 font-bold text-lg">星谕神启</h2>
+      <p class="text-xs text-gray-400">窥探星辰编织的命运真相</p>
     </div>
   </div>
-</main>
 
-<!-- 底部功能区 -->
-<footer class="p-4 pb-8 z-20">
-  <!-- 快捷提示词标签 -->
-  <div class="flex gap-2 overflow-x-auto no-scrollbar mb-3 text-[10px] whitespace-nowrap">
-    <span class="px-3 py-1 rounded-full border border-blue-900/50 bg-blue-900/20 text-blue-300">事业转机</span>
-    <span class="px-3 py-1 rounded-full border border-blue-900/50 bg-blue-900/20 text-blue-300">塔罗牌阵</span>
-    <span class="px-3 py-1 rounded-full border border-blue-900/50 bg-blue-900/20 text-blue-300">本周运势</span>
-    <span class="px-3 py-1 rounded-full border border-blue-900/50 bg-blue-900/20 text-blue-300">梦境神谕</span>
+  <!-- 男友入口 -->
+  <div onclick="navigateTo('boyfriend.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #60a5fa; --shadow: rgba(96, 165, 250, 0.3)">
+    <div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl shadow-inner">👔</div>
+    <div>
+      <h2 class="text-gray-800 font-bold text-lg">温柔男友</h2>
+      <p class="text-xs text-gray-400">给你最坚实的依靠与陪伴</p>
+    </div>
   </div>
 
-  <div class="glass-morphism rounded-2xl p-2 flex items-center gap-2">
-    <input type="text" id="userInput"
-           class="flex-1 bg-transparent border-none focus:ring-0 text-blue-50 text-sm px-3"
-           placeholder="在此向群星低语你的困惑...">
-    <button onclick="sendMessage()" id="sendBtn"
-            class="bg-gradient-to-br from-[#e2c08d] to-[#b8955d] text-black w-10 h-10 rounded-xl flex items-center justify-center transition-transform active:scale-90">
-      <svg xmlns="http://www.w3.org" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-      </svg>
-    </button>
+  <!-- 女友入口 -->
+  <div onclick="navigateTo('girlfriend.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #f472b6; --shadow: rgba(244, 114, 182, 0.3)">
+    <div class="w-14 h-14 rounded-2xl bg-pink-50 flex items-center justify-center text-2xl shadow-inner">👗</div>
+    <div>
+      <h2 class="text-gray-800 font-bold text-lg">甜心女友</h2>
+      <p class="text-xs text-gray-400">指尖流淌的暖心蜜语</p>
+    </div>
   </div>
-  <p class="text-[9px] text-center text-blue-900/80 mt-3 tracking-widest italic">All destinies are written in the stars.</p>
-</footer>
+</div>
+
+<p class="mt-12 text-[10px] text-gray-300 uppercase tracking-[0.3em]">AI Connection Portal</p>
 
 <script>
-  // 背景星空画布逻辑
-  const canvas = document.getElementById('starCanvas');
-  const ctx = canvas.getContext('2d');
-  let stars = [];
-
-  function initCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    stars = [];
-    for(let i=0; i<150; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        size: Math.random() * 1.5,
-        opacity: Math.random(),
-        speed: 0.01 + Math.random() * 0.02
-      });
-    }
+  function navigateTo(page) {
+    // 增加点击反馈动画
+    event.currentTarget.style.transform = "scale(0.95)";
+    setTimeout(() => {
+      window.location.href = page;
+    }, 150);
   }
-
-  function drawStars() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    stars.forEach(s => {
-      ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(Math.sin(s.opacity))})`;
-      ctx.beginPath();
-      ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
-      ctx.fill();
-      s.opacity += s.speed;
-    });
-    requestAnimationFrame(drawStars);
-  }
-
-  window.addEventListener('resize', initCanvas);
-  initCanvas();
-  drawStars();
-
-  // 核心逻辑逻辑
-  const API_URL = '/ai/app/fortuneTelling';
-  const chatId = 'oracle_' + Math.random().toString(36).substr(2, 9);
-  const chatBox = document.getElementById('chatBox');
-  const userInput = document.getElementById('userInput');
-  const sendBtn = document.getElementById('sendBtn');
-
-  async function sendMessage() {
-    const text = userInput.value.trim();
-    if (!text) return;
-
-    appendMessage('user', text);
-    userInput.value = '';
-    setLoading(true);
-
-    const aiMsgContent = appendMessage('ai', '');
-    aiMsgContent.classList.add('typing');
-
-    try {
-      const response = await fetch(`${API_URL}?chatId=${chatId}&message=${encodeURIComponent(text)}`);
-      if (!response.ok) throw new Error();
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      aiMsgContent.innerText = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        aiMsgContent.innerText += decoder.decode(value);
-        chatBox.scrollTop = chatBox.scrollHeight;
-      }
-    } catch (err) {
-      aiMsgContent.innerHTML = `<span class="text-red-400">星轨扰动，请重新连接星辰。</span>`;
-    } finally {
-      aiMsgContent.classList.remove('typing');
-      setLoading(false);
-    }
-  }
-
-  function appendMessage(role, text) {
-    const wrapper = document.createElement('div');
-    wrapper.className = `flex ${role === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
-
-    const div = document.createElement('div');
-    if (role === 'user') {
-      div.className = 'glass-morphism user-msg p-3 rounded-tl-2xl rounded-bl-2xl max-w-[85%] text-sm text-blue-100';
-      div.innerText = text;
-    } else {
-      div.className = 'glass-morphism oracle-msg p-4 rounded-tr-2xl rounded-br-2xl max-w-[90%] text-sm leading-relaxed';
-      const header = document.createElement('div');
-      header.className = 'text-[9px] text-[#e2c08d] mb-1 tracking-widest uppercase';
-      header.innerText = 'The Revelation';
-      div.appendChild(header);
-      const content = document.createElement('div');
-      content.className = 'text-blue-50';
-      div.appendChild(content);
-      wrapper.appendChild(div);
-      chatBox.appendChild(wrapper);
-      return content;
-    }
-    wrapper.appendChild(div);
-    chatBox.appendChild(wrapper);
-    chatBox.scrollTop = chatBox.scrollHeight;
-    return div;
-  }
-
-  function setLoading(isLoading) {
-    sendBtn.disabled = isLoading;
-    userInput.disabled = isLoading;
-    sendBtn.style.opacity = isLoading ? "0.5" : "1";
-  }
-
-  userInput.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
 </script>
 </body>
 </html>
