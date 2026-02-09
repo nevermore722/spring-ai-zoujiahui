@@ -100,22 +100,43 @@
         userInput.value = '';
         userInput.style.height = 'auto';
 
-        // 2. UI: 思考状态
-        const loadingId = appendMessage('ai', '<div class="flex gap-1"><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div></div>');
+        // 2. UI: 初始化 AI 消息框（显示加载动画）
+        const loadingId = appendMessage('ai', '<div class="flex gap-1" id="loading-dots"><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div></div>');
+        const messageElement = document.getElementById(loadingId);
+
+        let fullContent = ""; // 存储累计的文本
 
         try {
-            // 3. 调用后端
-            // 根据你的逻辑，如果不同模型对应不同接口，可以在这里切换 URL
-            // 如果后端统一处理，则只需要传参数
             const modelType = modelPicker.value;
-            const response = await fetch(`/ai/app/${modelType}?message=${encodeURIComponent(text)}&chatId=${currentChatId}`, {
-                method: 'GET' // 如果你后端是 @RequestParam，通常用 GET 或 POST 拼参数
-            });
+            const response = await fetch(`/ai/app/${modelType}?message=${encodeURIComponent(text)}&chatId=${currentChatId}`);
 
-            const data = await response.text(); // 假设返回的是纯文本内容
-            updateMessage(loadingId, data);
+            if (!response.ok) throw new Error("网络请求失败");
+
+            // 3. 读取流数据
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            // 移除加载动画，准备接收文本
+            messageElement.innerHTML = "";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                // 解码当前数据块
+                const chunk = decoder.decode(value, { stream: true });
+
+                // SSE 处理逻辑：如果后端返回的是标准 SSE (data: xxx)，需要正则提取
+                // 如果后端 Flux 直接写的 String 内容，则直接累加
+                fullContent += chunk;
+
+                // 实时更新 UI
+                messageElement.innerText = fullContent;
+                chatWindow.scrollTop = chatWindow.scrollHeight;
+            }
 
         } catch (error) {
+            console.error(error);
             updateMessage(loadingId, "连接中断，请稍后重试。");
         }
     }
