@@ -86,7 +86,7 @@
 
         if (currentBtnText === "唤醒她" && text === "") {
             // AI 主动发起
-            await sendRequest("云汐，作为我的女朋友，请温柔地跟我说句话吧。");
+            await sendRequest("跟我说说话吧。");
         } else if (text !== "") {
             // 用户发送
             appendMessage('user', text);

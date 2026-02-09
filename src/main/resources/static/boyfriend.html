@@ -94,7 +94,7 @@
 
         if (currentBtnText === "你先说" && text === "") {
             // 情况1：用户直接点“你先说”
-            await sendRequest("你现在是我的男朋友林深，请主动跟我打个招呼，说点撩人或者关怀的话。");
+            await sendRequest("跟我说说话吧。");
         } else if (text !== "") {
             // 情况2：用户输入了文字发送
             appendMessage('user', text);
