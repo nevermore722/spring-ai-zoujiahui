@@ -91,7 +91,7 @@
 </footer>
 
 <script>
-    const API = "http://localhost:8080/ai/app/startTesting";
+    const API = `${window.location.origin}/ai/app/startTesting`;
     const chatId = "1";
 
     window.onload = () => callAI("开始测试");
@@ -160,7 +160,7 @@
         if (options.length > 0) {
             // --- 答题模式 ---
             let mainQ = clean.substring(0, splitIdx);
-            qText.innerText = mainQ.replace(/问题\s*\d+\uff1a?/, '').split(/请[选择|直接|回复]/)[0].trim();
+            qText.innerText = mainQ.replace(/问题\s*\d+\uff1a?/, '').split(/请[选择|直接|回复|告诉]/)[0].trim();
 
             grid.innerHTML = options.map(opt => `
             <div onclick="callAI('${opt.L}')" class="opt-card active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300">
