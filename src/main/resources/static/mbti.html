@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>星谕 - 16人格探索</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --main-teal: #2dd4bf; --main-blue: #3b82f6; }
+        body {
+            background: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            height: 100vh; overflow: hidden; display: flex; flex-direction: column;
+        }
+        /* 顶部背景 */
+        .header-bg {
+            background: linear-gradient(135deg, #2dd4bf 0%, #3b82f6 100%);
+            height: 180px; width: 100%; position: absolute; top: 0; z-index: -1;
+            border-radius: 0 0 40px 40px;
+        }
+        /* 问题卡片 */
+        .q-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 32px;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.05);
+            margin: -60px 20px 20px 20px;
+            padding: 30px 24px;
+            min-height: 160px;
+        }
+        /* 选项卡片 */
+        .opt-card {
+            background: white;
+            border: 1.5px solid #f1f5f9;
+            border-radius: 20px;
+            padding: 16px 20px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; gap: 12px;
+        }
+        .opt-card:active { transform: scale(0.96); background: #f0fdfa; border-color: var(--main-teal); }
+        .opt-label {
+            width: 28px; height: 28px; border-radius: 8px;
+            background: #f1f5f9; color: #64748b;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 14px;
+        }
+        .opt-card:hover .opt-label { background: var(--main-teal); color: white; }
+
+        /* 进度条 */
+        .progress-track { background: rgba(255, 255, 255, 0.3); height: 6px; border-radius: 10px; width: 120px; }
+        .progress-fill { background: white; height: 100%; border-radius: 10px; transition: width 0.8s; }
+    </style>
+</head>
+<body>
+
+<div class="header-bg"></div>
+
+<!-- 顶部导航 -->
+<header class="pt-12 px-6 flex justify-between items-center text-white">
+    <button onclick="location.href='index.html'" class="p-2 opacity-80">✕</button>
+    <div class="flex flex-col items-center">
+        <span id="step-text" class="text-[10px] font-bold tracking-widest mb-1">DISCOVERING 1/15</span>
+        <div class="progress-track"><div id="progress-bar" class="progress-fill" style="width: 7%"></div></div>
+    </div>
+    <div class="w-8"></div>
+</header>
+
+<!-- 问题卡片区 -->
+<div class="q-card flex flex-col justify-center relative">
+    <div class="absolute -top-3 left-8 px-4 py-1 bg-white text-teal-500 rounded-full text-[10px] font-black shadow-sm border border-teal-100 uppercase tracking-tighter" id="badge">
+        Personality Quiz
+    </div>
+    <h2 id="q-text" class="text-xl font-bold text-slate-800 leading-relaxed text-center">
+        正在加载你的灵魂档案...
+    </h2>
+</div>
+
+<!-- 选项网格区 -->
+<main class="flex-1 px-5 overflow-y-auto pb-10">
+    <div id="options-grid" class="grid grid-cols-1 gap-3">
+        <!-- 动态选项 -->
+    </div>
+</main>
+
+<!-- 底部输入栏 -->
+<footer class="p-4 bg-white border-t border-slate-100 flex items-center gap-3">
+    <input id="user-input" type="text" placeholder="输入想法..."
+           class="flex-1 bg-slate-50 rounded-2xl px-5 py-3 text-sm outline-none focus:ring-2 focus:ring-teal-400/20">
+    <button onclick="handleSend()" class="w-12 h-12 bg-slate-900 text-white rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+        <svg viewBox="0 0 24 24" class="w-5 h-5 fill-none stroke-current stroke-2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </button>
+</footer>
+
+<script>
+    const API = "http://localhost:8080/ai/app/startTesting";
+    const chatId = "1";
+
+    window.onload = () => callAI("开始测试");
+
+    function handleSend() {
+        const input = document.getElementById('user-input');
+        if(input.value.trim()){ callAI(input.value.trim()); input.value = ''; }
+    }
+
+    async function callAI(msg) {
+        const grid = document.getElementById('options-grid');
+        grid.style.opacity = "0.5";
+        grid.style.pointerEvents = "none";
+
+        try {
+            const res = await fetch(`${API}?chatId=${chatId}&message=${encodeURIComponent(msg)}`);
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let result = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                result += decoder.decode(value);
+                renderUI(result);
+            }
+        } catch (e) { document.getElementById('q-text').innerText = "信号失联了..."; }
+        finally { grid.style.opacity = "1"; grid.style.pointerEvents = "auto"; }
+    }
+
+    function renderUI(raw) {
+        const qText = document.getElementById('q-text');
+        const grid = document.getElementById('options-grid');
+        const badge = document.getElementById('badge');
+
+        // 1. 提取题号更新进度
+        const numMatch = raw.match(/问题\s*(\d+)/);
+        if(numMatch) {
+            const n = numMatch[1];
+            document.getElementById('step-text').innerText = `DISCOVERING ${n}/15`;
+            document.getElementById('progress-bar').style.width = (n / 15 * 100) + "%";
+            badge.innerText = `Question ${n}`;
+        }
+
+        // 2. 清理正文并尝试分离选项
+        let clean = raw.replace(/\*\*/g, '').replace(/---/g, '').trim();
+        const splitIdx = clean.search(/[A-D][\.\)\uff09\uff1a\s]/);
+
+        // 3. 核心判定：是否存在选项
+        const options = [];
+        if (splitIdx !== -1) {
+            const labels = ['A', 'B', 'C', 'D'];
+            labels.forEach((L, i) => {
+                const start = clean.search(new RegExp(`${L}[\\.\\)\\uff09\\s]`));
+                if(start !== -1) {
+                    const next = clean.search(new RegExp(`${labels[i+1]}[\\.\\)\\uff09\\s]`));
+                    let content = (next !== -1) ? clean.substring(start + 2, next) : clean.substring(start + 2);
+                    // 剔除末尾引导语
+                    content = content.split(/请直接|请选择|选择[A-D]|回复[A-D]|A、B/)[0].trim();
+                    if(content && content.length > 0) options.push({ L, content });
+                }
+            });
+        }
+
+        // 4. 根据是否有选项决定展示模式
+        if (options.length > 0) {
+            // --- 答题模式 ---
+            let mainQ = clean.substring(0, splitIdx);
+            qText.innerText = mainQ.replace(/问题\s*\d+\uff1a?/, '').split(/请[选择|直接|回复]/)[0].trim();
+
+            grid.innerHTML = options.map(opt => `
+            <div onclick="callAI('${opt.L}')" class="opt-card active:scale-95 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div class="opt-label">${opt.L}</div>
+                <div class="text-sm font-semibold text-slate-600 leading-tight">${opt.content}</div>
+            </div>
+        `).join('');
+        } else {
+            // --- 结果报告模式 ---
+            // 如果没有解析出 A/B/C/D，且文本较长，判定为测试结束
+            if (clean.length > 20) {
+                badge.innerText = "Final Report";
+                badge.className = "absolute -top-3 left-8 px-4 py-1 bg-indigo-500 text-white rounded-full text-[10px] font-black shadow-md uppercase";
+
+                qText.innerText = "测试完成，正在生成你的灵魂画像...";
+                qText.className = "text-xl font-bold text-indigo-600 leading-relaxed text-center mb-4";
+
+                // 将长文本结果放入选项区展示，并增加精美的背景
+                grid.innerHTML = `
+                <div class="bg-indigo-50/50 border border-indigo-100 rounded-3xl p-6 text-slate-700 text-sm leading-loose animate-in zoom-in-95 duration-700">
+                    ${clean.replace(/\n/g, '<br>')}
+                    <button onclick="location.reload()" class="mt-8 w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200">
+                        重新开启探索
+                    </button>
+                </div>
+            `;
+                // 进度条拉满
+                document.getElementById('progress-bar').style.width = "100%";
+                document.getElementById('step-text').innerText = "EXPLORATION COMPLETE";
+            }
+        }
+    }
+</script>
+</body>
+</html>

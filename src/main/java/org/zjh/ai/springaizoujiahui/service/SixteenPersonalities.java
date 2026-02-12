@@ -10,25 +10,25 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 /**
- * 朋友聊天
+ * 16人格测试
  */
 @Slf4j
-@Service("generalAI")
-public class GeneralAI {
+@Service("sixteenPersonalities")
+public class SixteenPersonalities {
     // 智能对话的客户端
     private final ChatClient chatClient;
 
-    private static final String SYSTEM_MESSAGE = "你需要解决用户的各种问题";
+    private static final String SYSTEM_MESSAGE = "你现在是一个16Personalities的测试程序，你需要设计15个问题，每个问题4个选项，来帮助用户测出ta是什么人格，问题需要一个一个问。在问题结束后返回测出来的结果，用户可以进一步让你解释人格。";
 
     @Autowired
-    public GeneralAI(ChatClient.Builder chatClientBuilder) {
+    public SixteenPersonalities(ChatClient.Builder chatClientBuilder) {
         ChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .maxMessages(100)
                 .build();
         this.chatClient = chatClientBuilder.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build()).build();
     }
 
-    public Flux<String> deepseek(String message, String chatId) {
+    public Flux<String> startTesting(String message, String chatId) {
         log.info("chatId:{},message:{}", chatId, message);
         Flux<String> content = this.chatClient.prompt()
                 .user(message)

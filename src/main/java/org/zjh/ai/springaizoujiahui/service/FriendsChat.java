@@ -5,6 +5,7 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
+import org.springframework.ai.deepseek.DeepSeekChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -92,6 +93,7 @@ public class FriendsChat {
         Flux<String> content = this.chatClient.prompt()
                 .user(message)
                 .system(BOYFRIEND_SYSTEM_MESSAGE)
+                .options(DeepSeekChatOptions.builder().temperature(1.5d).build())
                 // 2. 通过 chatMemorySpec 指定当前对话的 ID (用于区分不同用户或会话)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()
@@ -107,6 +109,7 @@ public class FriendsChat {
         Flux<String> content = this.chatClient.prompt()
                 .user(message)
                 .system(GIRLFRIEND_SYSTEM_MESSAGE)
+                .options(DeepSeekChatOptions.builder().temperature(1.5d).build())
                 // 2. 通过 chatMemorySpec 指定当前对话的 ID (用于区分不同用户或会话)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
                 .stream()

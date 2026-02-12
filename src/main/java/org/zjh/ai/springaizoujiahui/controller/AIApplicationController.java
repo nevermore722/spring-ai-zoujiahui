@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.zjh.ai.springaizoujiahui.service.FortuneTelling;
 import org.zjh.ai.springaizoujiahui.service.FriendsChat;
 import org.zjh.ai.springaizoujiahui.service.GeneralAI;
+import org.zjh.ai.springaizoujiahui.service.SixteenPersonalities;
 import reactor.core.publisher.Flux;
 
 /**
@@ -28,10 +29,13 @@ public class AIApplicationController {
 
     private final GeneralAI generalAI;
 
-    public AIApplicationController(FortuneTelling fortuneTelling, FriendsChat friendsChat, GeneralAI generalAI) {
+    private final SixteenPersonalities sixteenPersonalities;
+
+    public AIApplicationController(FortuneTelling fortuneTelling, FriendsChat friendsChat, GeneralAI generalAI, SixteenPersonalities sixteenPersonalities) {
         this.fortuneTelling = fortuneTelling;
         this.friendsChat = friendsChat;
         this.generalAI = generalAI;
+        this.sixteenPersonalities = sixteenPersonalities;
     }
 
     @GetMapping(value = "/fortuneTelling", produces = "text/html;charset=UTF-8")
@@ -52,5 +56,10 @@ public class AIApplicationController {
     @GetMapping(value = "/deepseek", produces = "text/html;charset=UTF-8")
     public Flux<String> deepseek(@RequestParam(value = "message", defaultValue = "你好") String message, @RequestParam String chatId) {
         return generalAI.deepseek(message, chatId);
+    }
+
+    @GetMapping(value = "/startTesting", produces = "text/html;charset=UTF-8")
+    public Flux<String> startTesting(@RequestParam(value = "message", defaultValue = "开始测试") String message, @RequestParam String chatId) {
+        return sixteenPersonalities.startTesting(message, chatId);
     }
 }
