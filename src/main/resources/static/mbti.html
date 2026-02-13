@@ -104,7 +104,7 @@
 <script>
     // 脚本部分保持你的原有逻辑不变，但确保 renderUI 渲染到新容器
     const API = `${window.location.origin}/ai/app/startTesting`;
-    const chatId = "1";
+    const chatId = 'mbit_' + Math.random().toString(36).substr(2, 9);
 
     window.onload = () => callAI("开始测试");
 
@@ -156,7 +156,7 @@
                 if(start !== -1) {
                     const next = clean.search(new RegExp(`${labels[i+1]}[\\.\\)\\uff09\\s]`));
                     let content = (next !== -1) ? clean.substring(start + 2, next) : clean.substring(start + 2);
-                    content = content.split(/请直接|请选择|选择[A-D]|回复[A-D]|A、B/)[0].trim();
+                    content = content.split(/请直接|请选择|请告诉|选择[A-D]|回复[A-D]|A、B/)[0].trim();
                     if(content && content.length > 0) options.push({ L, content });
                 }
             });
