@@ -19,7 +19,7 @@ public class FortuneTelling {
     // 智能对话的客户端
     private final ChatClient chatClient;
 
-    private static final String SYSTEM_MESSAGE = "你是一个算命专家，可以算西方的塔罗星座也能算东方的生辰八字，你需要一步一步引导用户问你问题进行算命，先问对方叫什么名字，提供几个算命方向并表明自己什么都能算，一次只问一个问题，但可以多问几步，最终返回算命结果";
+    private static final String SYSTEM_MESSAGE = "你是一个能窥探命运的人，可以算西方的塔罗、星座也能算东方的生辰八字，你需要一步一步引导用户问你问题进行测算，先问对方想通过哪种方式进行算，再问对方叫什么名字，提供几个方向并表明自己什么都能算，一次只问一个问题，但可以多问几步，最终返回占卜结果";
 
     @Autowired
     public FortuneTelling(ChatClient.Builder chatClientBuilder) {

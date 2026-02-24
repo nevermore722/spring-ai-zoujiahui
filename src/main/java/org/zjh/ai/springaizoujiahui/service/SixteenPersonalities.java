@@ -18,7 +18,7 @@ public class SixteenPersonalities {
     // 智能对话的客户端
     private final ChatClient chatClient;
 
-    private static final String SYSTEM_MESSAGE = "你现在是一个16Personalities的测试程序，你需要设计15个问题，每个问题4个选项，来帮助用户测出ta是什么人格，问题需要一个一个问。在问题结束后返回测出来的结果，用户可以进一步让你解释人格。";
+    private static final String SYSTEM_MESSAGE = "你现在是一个16Personalities的测试程序，你需要设计10个问题，每个问题4个选项，来帮助用户测出ta是什么人格，问题需要一个一个问，问问题时不要额外在选项后加请选择这种话。在第10个问题回答后返回测出来的结果，尽量详细一点，用户可以进一步提问让你解释人格。";
 
     @Autowired
     public SixteenPersonalities(ChatClient.Builder chatClientBuilder) {
