@@ -6,78 +6,136 @@
     <title>星谕 - 灵魂色彩探测</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        :root { --safe-top: env(safe-area-inset-top); --safe-bottom: env(safe-area-inset-bottom); }
-        body { background: #0f172a; min-height: 100vh; overflow: hidden; font-family: system-ui, -apple-system, sans-serif; }
-        .bg-glow {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: -1;
-            background: radial-gradient(circle at 20% 30%, #4f46e5 0%, transparent 40%),
-                        radial-gradient(circle at 80% 70%, #7c3aed 0%, transparent 40%),
-                        radial-gradient(circle at 50% 50%, #1e293b 0%, #0f172a 100%);
-            filter: blur(60px); animation: move 15s infinite alternate ease-in-out;
+        :root {
+            --safe-top: env(safe-area-inset-top);
+            --safe-bottom: env(safe-area-inset-bottom);
         }
-        @keyframes move { from { transform: scale(1); } to { transform: scale(1.15); } }
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .main-content { height: 100vh; overflow-y: auto; padding: calc(100px + var(--safe-top)) 1.25rem calc(120px + var(--safe-bottom)); scroll-behavior: smooth; }
-        .opt-card { background: rgba(255, 255, 255, 0.04); transition: all 0.2s ease; border: 1px solid rgba(255, 255, 255, 0.05); -webkit-tap-highlight-color: transparent; }
-        .opt-card:active { background: rgba(99, 102, 241, 0.2); transform: scale(0.97); border-color: rgba(99, 102, 241, 0.4); }
-        .progress-fill { transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 0 12px rgba(99, 102, 241, 0.5); }
-        .input-area { background: rgba(15, 23, 42, 0.85); backdrop-blur: 15px; border-top: 0.5px solid rgba(255, 255, 255, 0.1); }
-        ::-webkit-scrollbar { display: none; }
+        body {
+            background: #080c17;
+            height: 100vh;
+            height: -webkit-fill-available;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .bg-glow {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(circle at 10% 20%, rgba(79, 70, 229, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
+                #080c17;
+        }
+        /* 核心布局：使用 Flex 适配键盘弹出 */
+        .app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding-top: var(--safe-top);
+        }
+        .header {
+            padding: 1.5rem 1.5rem 1rem;
+            flex-shrink: 0;
+        }
+        .scroll-content {
+            flex: 1;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            padding: 0 1.25rem 2rem;
+            scroll-behavior: smooth;
+        }
+        .glass {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .opt-card {
+            background: rgba(255, 255, 255, 0.05);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        /* 点击态即时反馈 */
+        .opt-card:active {
+            background: rgba(99, 102, 241, 0.25);
+            transform: scale(0.96);
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+        .input-bar {
+            padding: 0.75rem 1.25rem calc(0.75rem + var(--safe-bottom));
+            background: rgba(13, 18, 33, 0.9);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            flex-shrink: 0;
+        }
+        .progress-fill {
+            transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.4);
+        }
+        /* 隐藏滚动条 */
+        .scroll-content::-webkit-scrollbar { display: none; }
     </style>
 </head>
-<body class="text-white">
+<body class="text-slate-100">
 <div class="bg-glow"></div>
 
-<!-- 顶部状态栏 -->
-<nav class="fixed top-0 w-full z-50 px-6 pt-[calc(1rem + var(--safe-top))] pb-4 flex justify-between items-end bg-gradient-to-b from-[#0f172a] to-transparent">
-    <div>
-        <p class="text-[10px] tracking-[0.2em] text-indigo-400 font-bold uppercase mb-0.5">Soul Color Prism</p>
-        <h1 class="text-xl font-black tracking-tight">星谕 · 探测</h1>
-    </div>
-    <div class="text-right leading-none">
-        <span id="step-num" class="text-2xl font-light italic tabular-nums">01</span>
-        <span class="text-slate-500 text-xs ml-1">/ 10</span>
-    </div>
-</nav>
+<div class="app-container">
+    <!-- 顶部信息 -->
+    <header class="header flex justify-between items-end">
+        <div>
+            <p class="text-[10px] tracking-[0.3em] text-indigo-400 font-bold uppercase">Soul Spectrum</p>
+            <h1 class="text-2xl font-black italic tracking-tight">星谕 · 探测</h1>
+        </div>
+        <div class="text-right">
+            <span id="step-num" class="text-3xl font-light tabular-nums text-indigo-200">01</span>
+            <span class="text-slate-500 text-xs ml-1 font-bold">/ 10</span>
+        </div>
+    </header>
 
-<!-- 进度条容器 -->
-<div class="fixed top-[calc(4.5rem + var(--safe-top))] left-6 right-6 h-[3px] bg-white/10 rounded-full z-50">
-    <div id="progress-bar" class="progress-fill h-full bg-indigo-500 w-0 rounded-full"></div>
+    <!-- 进度条 -->
+    <div class="px-6 mb-6">
+        <div class="h-1 bg-white/5 rounded-full overflow-hidden">
+            <div id="progress-bar" class="progress-fill h-full bg-indigo-500 w-0"></div>
+        </div>
+    </div>
+
+    <!-- 内容滚动区 -->
+    <main id="scroll-content" class="scroll-content">
+        <div class="max-w-md mx-auto space-y-6">
+            <!-- 题目卡片 -->
+            <div id="q-card" class="glass rounded-[2.5rem] p-8 min-h-[160px] flex flex-col justify-center relative overflow-hidden">
+                <div class="absolute -top-12 -right-12 w-32 h-32 bg-indigo-600/10 blur-3xl"></div>
+                <div id="q-text" class="text-lg font-medium leading-relaxed transition-all duration-500">
+                    正在同步星历信号...
+                </div>
+            </div>
+
+            <!-- 选项容器 -->
+            <div id="options-grid" class="grid gap-3">
+                <!-- 占位骨架屏 -->
+                <div class="h-16 glass rounded-2xl animate-pulse"></div>
+                <div class="h-16 glass rounded-2xl animate-pulse"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 输入交互 -->
+    <footer id="input-footer" class="input-bar">
+        <div class="max-w-md mx-auto flex gap-3">
+            <input type="text" id="user-input"
+                   class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-[16px] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-600"
+                   placeholder="输入指令或 A/B/C/D..."
+                   inputmode="text"
+                   enterkeyhint="send">
+            <button onclick="handleManualInput()" class="bg-indigo-600 active:bg-indigo-700 text-white w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg transition-all">
+                <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+        </div>
+    </footer>
 </div>
-
-<main class="main-content">
-    <div class="max-w-md mx-auto space-y-6">
-        <!-- 问题展示卡片 -->
-        <div id="q-card" class="glass rounded-[2rem] p-7 min-h-[180px] flex flex-col justify-center relative overflow-hidden shadow-2xl">
-            <div class="absolute -top-12 -right-12 w-32 h-32 bg-indigo-600/10 blur-3xl"></div>
-            <div id="q-text" class="text-[17px] font-medium leading-relaxed text-slate-100 transition-all duration-300">
-                正在连接星历信号，同步灵魂频率...
-            </div>
-        </div>
-
-        <!-- 选项列表 -->
-        <div id="options-grid" class="grid gap-3.5">
-            <div class="opt-card p-5 rounded-2xl animate-pulse flex gap-4">
-                <div class="w-6 h-6 bg-white/5 rounded-lg"></div>
-                <div class="h-4 bg-white/5 rounded w-2/3"></div>
-            </div>
-        </div>
-    </div>
-</main>
-
-<!-- 底部输入交互 -->
-<footer class="fixed bottom-0 w-full input-area p-4 pb-[calc(1rem + var(--safe-bottom))]">
-    <div class="max-w-md mx-auto flex gap-3">
-        <input type="text" id="user-input"
-               class="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-[15px] focus:outline-none focus:ring-2 focus:ring-indigo-500/40 transition-all placeholder:text-slate-500"
-               placeholder="回复 A/B/C/D 或你的见解...">
-        <button onclick="handleManualInput()" class="bg-indigo-600 hover:bg-indigo-500 active:scale-90 text-white w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg shadow-indigo-900/20 transition-all">
-            <svg xmlns="http://www.w3.org" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
-            </svg>
-        </button>
-    </div>
-</footer>
 
 <script>
     let currentStep = 1;
@@ -88,8 +146,13 @@
     window.onload = () => callAI("开始探测");
 
     async function callAI(msg) {
+        if (!msg) return;
+        // 触感反馈
+        if (window.navigator.vibrate) window.navigator.vibrate(15);
+
         const grid = document.getElementById('options-grid');
-        grid.style.opacity = "0.4";
+        grid.style.opacity = "0.5";
+        grid.style.pointerEvents = "none";
 
         try {
             const res = await fetch(`${API}?chatId=${chatId}&message=${encodeURIComponent(msg)}`);
@@ -104,9 +167,10 @@
                 renderUI(result);
             }
         } catch (e) {
-            document.getElementById('q-text').innerText = "星际波动异常，请点击发送重试。";
+            document.getElementById('q-text').innerText = "星际信号中断，请重试。";
         } finally {
             grid.style.opacity = "1";
+            grid.style.pointerEvents = "auto";
         }
     }
 
@@ -116,48 +180,41 @@
               stepNum = document.getElementById('step-num'),
               progressBar = document.getElementById('progress-bar');
 
-        // 1. 智能提取题号 (兼容 "3." "3、" "第3题")
-        const numMatch = raw.match(/(\d+)\s*[\.、\uff1a\s]/);
+        // 1. 提取题号
+        const numMatch = raw.match(/第?\s*(\d+)\s*[题\.、\uff1a]/);
         if (numMatch) {
             currentStep = parseInt(numMatch[1]);
             stepNum.innerText = currentStep.toString().padStart(2, '0');
             progressBar.style.width = `${(currentStep / TOTAL) * 100}%`;
         }
 
-        // 2. 清理正文 (去除加粗和干扰字符)
         let cleanText = raw.replace(/\*\*/g, '').trim();
-
-        // 3. 增强型选项解析正则
         const labels = ['A', 'B', 'C', 'D'];
         const options = [];
 
         labels.forEach((L, idx) => {
-            const nextL = labels[idx + 1] || '###'; // 后面没有字母则匹配结尾
+            const nextL = labels[idx + 1] || '###';
             const regex = new RegExp(`${L}[\\.\\uff0e\\u3001\\uff1a\\s\\)]\\s*(.*?)(?=\\s*${nextL}[\\.\\uff0e\\u3001\\uff1a\\s\\)]|$)`, 's');
             const match = cleanText.match(regex);
-            if (match && match[1]) {
-                options.push({ L, content: match[1].trim() });
-            }
+            if (match && match[1]) options.push({ L, content: match[1].trim() });
         });
 
-        // 4. 判断显示题目还是结果
         if (options.length > 0 && currentStep <= TOTAL) {
-            // 提取题目：第一个选项字母之前的内容，并抹除题号前缀
             let question = cleanText.split(/[A-D][\.\uff0e\u3001\uff1a\s\)]/)[0].replace(/^第?\d+[\.、\s]*/, '').trim();
             if (question) qText.innerText = question;
 
-            grid.innerHTML = options.map((opt, i) => `
-                <div onclick="callAI('${opt.L}')" class="opt-card p-5 rounded-2xl flex items-center gap-4 shadow-sm">
-                    <span class="w-9 h-9 shrink-0 flex items-center justify-center rounded-xl bg-indigo-500/20 text-indigo-300 font-black text-sm border border-white/5">${opt.L}</span>
-                    <span class="text-[15px] text-slate-200 leading-snug font-medium">${opt.content}</span>
+            grid.innerHTML = options.map(opt => `
+                <div onclick="callAI('${opt.L}')" class="opt-card p-5 rounded-2xl flex items-center gap-4 border border-white/5 shadow-sm">
+                    <span class="w-10 h-10 shrink-0 flex items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 font-black text-sm border border-indigo-500/20">${opt.L}</span>
+                    <span class="text-[15px] text-slate-200 leading-snug">${opt.content}</span>
                 </div>
             `).join('');
-        } else if (cleanText.length > 150 || (currentStep >= TOTAL && options.length === 0)) {
-            // 渲染最终结果
-            document.getElementById('q-card').className = "glass rounded-[2rem] p-7 bg-gradient-to-br from-indigo-600/40 to-purple-600/40 border-indigo-500/30";
-            qText.innerHTML = `<div class="text-xs opacity-60 tracking-widest uppercase mb-1">Soul Report</div><div class="text-xl font-bold">探测报告生成完毕</div>`;
-            grid.innerHTML = `<div class="glass p-7 rounded-[2rem] text-[15px] leading-[1.8] text-slate-200 shadow-2xl animate-in fade-in slide-in-from-bottom-8 duration-1000">${cleanText.replace(/\n/g, '<br>')}</div>
-                             <button onclick="location.reload()" class="mt-4 w-full py-4 rounded-2xl bg-white/5 border border-white/10 text-sm font-medium">开启新探测</button>`;
+        } else if (cleanText.length > 100) {
+            // 结果页逻辑
+            document.getElementById('q-card').className = "glass rounded-[2.5rem] p-8 bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border-indigo-500/30";
+            qText.innerHTML = `<div class="text-xs opacity-60 tracking-[0.3em] uppercase mb-1">Soul Report</div><div class="text-xl font-bold">探测报告生成完毕</div>`;
+            grid.innerHTML = `<div class="glass p-7 rounded-[2rem] text-[16px] leading-relaxed text-slate-300 animate-in fade-in slide-in-from-bottom-4 duration-700">${cleanText.replace(/\n/g, '<br>')}</div>
+                              <button onclick="location.reload()" class="mt-4 w-full py-4 rounded-2xl bg-indigo-600 font-bold">重新启动探测</button>`;
             progressBar.style.width = "100%";
         }
     }
@@ -168,12 +225,21 @@
         if (val) {
             callAI(val);
             input.value = '';
-            // 移动端自动收起键盘
             input.blur();
         }
     }
 
-    // 回车发送
+    // 键盘弹出兼容性处理
+    if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', () => {
+            const offset = window.innerHeight - window.visualViewport.height;
+            document.getElementById('input-footer').style.transform = `translateY(-${offset}px)`;
+            if (offset > 0) {
+                document.getElementById('scroll-content').scrollBy(0, offset);
+            }
+        });
+    }
+
     document.getElementById('user-input').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleManualInput();
     });
