@@ -7,44 +7,43 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com" rel="stylesheet">
   <style>
-    body {
-      background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%);
-      font-family: 'Noto Sans SC', sans-serif;
-      min-height: 100vh;
-      color: #333;
-    }
-    .portal-card {
-      background: rgba(255, 255, 255, 0.7);
-      backdrop-filter: blur(10px);
-      border: 2px solid transparent;
-      transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
-      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-    }
-    .portal-card:hover {
-      transform: translateY(-5px);
-      border-color: var(--clr);
-      background: white;
-      box-shadow: 0 20px 30px -10px var(--shadow);
-    }
-    /* 装饰背景圆圈 */
-    .deco-circle {
-      position: fixed; border-radius: 50%; z-index: -1; filter: blur(60px); opacity: 0.4;
-    }
+    body { background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); font-family: 'Noto Sans SC', sans-serif; min-height: 100vh; color: #333; overflow-x: hidden; }
+    .portal-card { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 2px solid transparent; transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1); box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05); cursor: pointer; }
+    .portal-card:hover { transform: translateY(-5px); border-color: var(--clr); background: white; box-shadow: 0 20px 30px -10px var(--shadow); }
+    .deco-circle { position: fixed; border-radius: 50%; z-index: -1; filter: blur(60px); opacity: 0.4; }
+    #auth-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(20px); z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s ease; }
+    .auth-box { width: 85%; max-width: 320px; text-align: center; }
+    input { outline: none; transition: border-color 0.3s; }
+    input:focus { border-color: #a855f7; }
   </style>
 </head>
-<body class="flex flex-col items-center justify-center p-6 overflow-y-auto">
+<body class="flex flex-col items-center justify-center p-6 min-h-screen">
+
+<!-- 验证层 -->
+<div id="auth-overlay">
+  <div class="auth-box p-8 rounded-3xl bg-white shadow-2xl border border-gray-100">
+    <div class="text-4xl mb-4">🔑</div>
+    <h2 class="text-xl font-bold mb-2 text-gray-800">身份确权</h2>
+    <p class="text-sm text-gray-500 mb-6">为了满足合规要求，本站仅限内部使用，请输入作者姓名以解锁维度。</p>
+    <input type="text" id="answer-input" placeholder="请输入姓名" maxlength="3" class="w-full px-4 py-3 border-2 border-gray-100 rounded-xl mb-2 text-center text-lg font-medium tracking-widest">
+    <p class="text-[11px] text-purple-400 mb-6 font-medium">提示：答案为三个中文字符</p>
+    <button onclick="checkAuth()" class="w-full bg-gray-900 text-white py-3 rounded-xl font-bold hover:bg-black transition-all active:scale-95"> 解锁维度 </button>
+    <p id="error-msg" class="text-red-400 text-xs mt-3 opacity-0 transition-opacity">验证未通过，请检查姓名</p>
+  </div>
+</div>
+
 <!-- 背景装饰 -->
 <div class="deco-circle bg-yellow-200 w-64 h-64 -top-20 -left-20"></div>
 <div class="deco-circle bg-pink-200 w-80 h-80 -bottom-20 -right-20"></div>
 <div class="deco-circle bg-blue-200 w-40 h-40 top-1/2 left-1/4"></div>
 
+<!-- 主体内容 -->
 <div class="text-center mb-10">
   <h1 class="text-3xl font-bold tracking-tight text-gray-800 mb-2">遇见另一个维度</h1>
   <p class="text-sm text-gray-400 tracking-widest uppercase">Select Your Dimension</p>
 </div>
 
 <div class="grid gap-5 w-full max-w-sm">
-  <!-- 算命入口 -->
   <div onclick="navigateTo('fortune.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #e2c08d; --shadow: rgba(226, 192, 141, 0.3)">
     <div class="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center text-2xl shadow-inner">🔮</div>
     <div>
@@ -53,16 +52,14 @@
     </div>
   </div>
 
-  <!-- 16人格入口 -->
   <div onclick="navigateTo('mbti.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #2dd4bf; --shadow: rgba(45, 212, 191, 0.3)">
     <div class="w-14 h-14 rounded-2xl bg-teal-50 flex items-center justify-center text-2xl shadow-inner">🧬</div>
     <div>
       <h2 class="text-gray-800 font-bold text-lg">灵魂原色</h2>
-      <p class="text-xs text-gray-400">深层解析你的 16 型人格内核</p>
+      <p class="text-xs text-gray-400">解析你的 16 型人格内核</p>
     </div>
   </div>
 
-  <!-- 男友入口 -->
   <div onclick="navigateTo('boyfriend.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #60a5fa; --shadow: rgba(96, 165, 250, 0.3)">
     <div class="w-14 h-14 rounded-2xl bg-blue-50 flex items-center justify-center text-2xl shadow-inner">👔</div>
     <div>
@@ -71,7 +68,6 @@
     </div>
   </div>
 
-  <!-- 女友入口 -->
   <div onclick="navigateTo('girlfriend.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #f472b6; --shadow: rgba(244, 114, 182, 0.3)">
     <div class="w-14 h-14 rounded-2xl bg-pink-50 flex items-center justify-center text-2xl shadow-inner">👗</div>
     <div>
@@ -80,7 +76,6 @@
     </div>
   </div>
 
-  <!-- 通用AI入口 (把这段移进来) -->
   <div onclick="navigateTo('generalAI.html')" class="portal-card p-5 rounded-3xl flex items-center gap-4" style="--clr: #a855f7; --shadow: rgba(168, 85, 247, 0.3)">
     <div class="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center text-2xl shadow-inner">🧠</div>
     <div>
@@ -93,13 +88,68 @@
 <p class="mt-12 text-[10px] text-gray-300 uppercase tracking-[0.3em]">AI Connection Portal</p>
 
 <script>
-  function navigateTo(page) {
-    // 增加点击反馈动画
-    event.currentTarget.style.transform = "scale(0.95)";
-    setTimeout(() => {
-      window.location.href = page;
-    }, 150);
+  // 简单的哈希函数
+  const generateHash = (str) => {
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+          h = ((h << 5) - h) + str.charCodeAt(i);
+          h |= 0;
+      }
+      return h.toString();
+  };
+
+  // 配置项
+  const SECRET_HASH = "36368652"; // 我的名字对应的哈希值
+  const EXPIRE_DAYS = 7;           // 7天有效期
+
+  window.onload = function() {
+      const authStr = localStorage.getItem('user_auth_info');
+      if (authStr) {
+          const authData = JSON.parse(authStr);
+          const now = new Date().getTime();
+          // 验证是否有效且未过期
+          if (authData.isAuthorized && now < authData.expiry) {
+              document.getElementById('auth-overlay').style.display = 'none';
+          }
+      }
+  };
+
+  function checkAuth() {
+      const input = document.getElementById('answer-input').value.trim();
+      const error = document.getElementById('error-msg');
+      const overlay = document.getElementById('auth-overlay');
+
+      if (generateHash(input) === SECRET_HASH) {
+          // 计算过期时间
+          const expiryTime = new Date().getTime() + EXPIRE_DAYS * 24 * 60 * 60 * 1000;
+          localStorage.setItem('user_auth_info', JSON.stringify({
+              isAuthorized: true,
+              expiry: expiryTime
+          }));
+
+          overlay.style.opacity = "0";
+          setTimeout(() => { overlay.style.display = "none"; }, 500);
+      } else {
+          error.style.opacity = "1";
+          document.querySelector('.auth-box').animate([
+              { transform: 'translateX(0px)' },
+              { transform: 'translateX(-6px)' },
+              { transform: 'translateX(6px)' },
+              { transform: 'translateX(0px)' }
+          ], { duration: 200 });
+          setTimeout(() => { error.style.opacity = "0"; }, 3000);
+      }
   }
+
+  function navigateTo(page) {
+      // 简单的点击反馈
+      event.currentTarget.style.transform = "scale(0.95)";
+      setTimeout(() => { window.location.href = page; }, 150);
+  }
+
+  document.getElementById('answer-input').addEventListener('keypress', function (e) {
+      if (e.key === 'Enter') { checkAuth(); }
+  });
 </script>
 </body>
 </html>
