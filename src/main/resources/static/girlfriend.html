@@ -53,14 +53,23 @@
                 class="bg-pink-400 hover:bg-pink-500 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-all active:scale-95 shadow-md shadow-pink-100">
             唤醒她
         </button>
+        <button id="stopBtn" onclick="stopGenerating()"
+                class="hidden bg-white/90 border border-pink-100 text-pink-700 px-4 py-2.5 rounded-full text-sm font-medium transition-all active:opacity-80 shadow-sm">
+            <svg viewBox="0 0 24 24" class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+            </svg>
+        </button>
     </div>
 </footer>
 
 <script>
     let interactionLocked = false; // 状态锁
+    let isStreaming = false;
+    let abortController = null;
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const actionBtn = document.getElementById('actionBtn');
+    const stopBtn = document.getElementById('stopBtn');
     const API_URL = '/ai/app/girlfriend';
     const chatId = 'girl_' + Math.random().toString(36).substr(2, 9);
 
@@ -77,6 +86,7 @@
     });
 
     async function handleAction() {
+        if (isStreaming) return;
         const text = userInput.value.trim();
         const currentBtnText = actionBtn.innerText;
 
@@ -97,13 +107,20 @@
     }
 
     async function sendRequest(msg) {
+        if (isStreaming) return;
         const wrapper = appendMessage('ai', '');
         const contentDiv = wrapper.querySelector('.content');
         contentDiv.innerHTML = '<span class="typing-dot"></span><span class="typing-dot" style="animation-delay:0.2s"></span><span class="typing-dot" style="animation-delay:0.4s"></span>';
 
         try {
+            isStreaming = true;
+            userInput.disabled = true;
+            actionBtn.disabled = true;
+            stopBtn.classList.toggle('hidden', false);
+
+            abortController = new AbortController();
             const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: abortController.signal });
             if (!response.ok) throw new Error();
 
             const reader = response.body.getReader();
@@ -117,8 +134,23 @@
                 chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
             }
         } catch (err) {
-            contentDiv.innerHTML = '<span class="text-pink-300 text-xs italic">云汐正在午睡，稍后再找她吧~</span>';
+            if (err && err.name === 'AbortError') {
+                contentDiv.innerHTML = '<span class="text-pink-700 text-xs italic">已停止回复。</span>';
+            } else {
+                contentDiv.innerHTML = '<span class="text-pink-300 text-xs italic">云汐正在午睡，稍后再找她吧~</span>';
+            }
+        } finally {
+            isStreaming = false;
+            abortController = null;
+            userInput.disabled = false;
+            actionBtn.disabled = false;
+            stopBtn.classList.toggle('hidden', true);
         }
+    }
+
+    function stopGenerating() {
+        if (!isStreaming) return;
+        if (abortController) abortController.abort();
     }
 
     function appendMessage(role, text) {

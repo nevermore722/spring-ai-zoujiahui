@@ -128,9 +128,15 @@
                    placeholder="输入指令或 A/B/C/D..."
                    inputmode="text"
                    enterkeyhint="send">
-            <button onclick="handleManualInput()" class="bg-indigo-600 active:bg-indigo-700 text-white w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg transition-all">
+            <button id="sendBtn" onclick="handleManualInput()" class="bg-indigo-600 active:bg-indigo-700 text-white w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg transition-all">
                 <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5">
                     <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+            </button>
+            <button id="stopBtn" onclick="stopGenerating()"
+                    class="hidden bg-white/10 hover:bg-white/15 text-indigo-200 w-14 h-14 flex items-center justify-center rounded-2xl shadow-lg transition-all border border-white/10">
+                <svg viewBox="0 0 24 24" class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <rect x="6" y="6" width="12" height="12" rx="2"></rect>
                 </svg>
             </button>
         </div>
@@ -142,11 +148,24 @@
     const TOTAL = 10;
     const chatId = 'soul_' + Math.random().toString(36).substr(2, 9);
     const API = `${window.location.origin}/ai/app/startTesting`;
+    let isStreaming = false;
+    let abortController = null;
 
     window.onload = () => callAI("开始探测");
 
     async function callAI(msg) {
         if (!msg) return;
+        if (isStreaming) return;
+        isStreaming = true;
+        abortController = new AbortController();
+
+        const inputEl = document.getElementById('user-input');
+        const sendBtn = document.getElementById('sendBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        inputEl.disabled = true;
+        sendBtn.disabled = true;
+        stopBtn.classList.toggle('hidden', false);
+
         // 触感反馈
         if (window.navigator.vibrate) window.navigator.vibrate(15);
 
@@ -155,7 +174,9 @@
         grid.style.pointerEvents = "none";
 
         try {
-            const res = await fetch(`${API}?chatId=${chatId}&message=${encodeURIComponent(msg)}`);
+            const res = await fetch(`${API}?chatId=${chatId}&message=${encodeURIComponent(msg)}`, {
+                signal: abortController.signal
+            });
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let result = "";
@@ -167,10 +188,23 @@
                 renderUI(result);
             }
         } catch (e) {
-            document.getElementById('q-text').innerText = "星际信号中断，请重试。";
+            if (e && e.name === 'AbortError') {
+                document.getElementById('q-text').innerText = "已停止探测。";
+            } else {
+                document.getElementById('q-text').innerText = "星际信号中断，请重试。";
+            }
         } finally {
             grid.style.opacity = "1";
             grid.style.pointerEvents = "auto";
+            isStreaming = false;
+            abortController = null;
+
+            const inputEl = document.getElementById('user-input');
+            const sendBtn = document.getElementById('sendBtn');
+            const stopBtn = document.getElementById('stopBtn');
+            inputEl.disabled = false;
+            sendBtn.disabled = false;
+            stopBtn.classList.toggle('hidden', true);
         }
     }
 
@@ -227,6 +261,11 @@
             input.value = '';
             input.blur();
         }
+    }
+
+    function stopGenerating() {
+        if (!isStreaming) return;
+        if (abortController) abortController.abort();
     }
 
     // 键盘弹出兼容性处理

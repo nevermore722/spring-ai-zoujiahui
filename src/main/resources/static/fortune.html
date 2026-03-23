@@ -104,6 +104,26 @@
 
         /* 隐藏滚动条 */
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 18px;
+            z-index: 60;
+            max-width: min(520px, 92vw);
+            pointer-events: none;
+        }
+        .toast-item {
+            background: rgba(17, 24, 39, 0.92);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 10px 14px;
+            border-radius: 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen">
@@ -152,6 +172,12 @@
         <input type="text" id="userInput"
                class="flex-1 bg-transparent border-none focus:ring-0 text-blue-50 text-sm px-3"
                placeholder="在此向群星低语你的困惑...">
+        <button onclick="stopGenerating()" id="stopBtn" class="hidden opacity-90 hover:opacity-100
+                bg-white/10 text-blue-50 w-10 h-10 rounded-xl flex items-center justify-center transition active:scale-95">
+            <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+            </svg>
+        </button>
         <button onclick="sendMessage()" id="sendBtn"
                 class="bg-gradient-to-br from-[#e2c08d] to-[#b8955d] text-black w-10 h-10 rounded-xl flex items-center justify-center transition-transform active:scale-90">
             <svg xmlns="http://www.w3.org" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -205,8 +231,29 @@
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    let isStreaming = false;
+    let abortController = null;
+
+    function toast(msg) {
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.innerHTML = `<div class="toast-item">${msg}</div>`;
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transition = 'opacity 0.2s ease';
+            setTimeout(() => el.remove(), 200);
+        }, 2400);
+    }
+
+    function stopGenerating() {
+        if (!isStreaming) return;
+        if (abortController) abortController.abort();
+    }
 
     async function sendMessage() {
+        if (isStreaming) return;
         const text = userInput.value.trim();
         if (!text) return;
 
@@ -214,11 +261,16 @@
         userInput.value = '';
         setLoading(true);
 
+        abortController = new AbortController();
+        isStreaming = true;
+
         const aiMsgContent = appendMessage('ai', '');
         aiMsgContent.classList.add('typing');
 
         try {
-            const response = await fetch(`${API_URL}?chatId=${chatId}&message=${encodeURIComponent(text)}`);
+            const response = await fetch(`${API_URL}?chatId=${chatId}&message=${encodeURIComponent(text)}`, {
+                signal: abortController.signal
+            });
             if (!response.ok) throw new Error();
 
             const reader = response.body.getReader();
@@ -232,9 +284,15 @@
                 chatBox.scrollTop = chatBox.scrollHeight;
             }
         } catch (err) {
-            aiMsgContent.innerHTML = `<span class="text-red-400">星轨扰动，请重新连接星辰。</span>`;
+            if (err && err.name === 'AbortError') {
+                aiMsgContent.innerHTML = `<span class="text-blue-300 text-xs">已停止占卜。</span>`;
+            } else {
+                aiMsgContent.innerHTML = `<span class="text-red-400">星轨扰动，请重新连接星辰。</span>`;
+            }
         } finally {
             aiMsgContent.classList.remove('typing');
+            isStreaming = false;
+            abortController = null;
             setLoading(false);
         }
     }
@@ -268,6 +326,8 @@
 
     function setLoading(isLoading) {
         sendBtn.disabled = isLoading;
+        stopBtn.disabled = !isLoading;
+        stopBtn.classList.toggle('hidden', !isLoading);
         userInput.disabled = isLoading;
         sendBtn.style.opacity = isLoading ? "0.5" : "1";
     }

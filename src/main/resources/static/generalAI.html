@@ -29,6 +29,26 @@
 
         /* 输入框聚焦效果 */
         .input-focus:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.1); }
+
+        /* 轻量 Toast */
+        .toast {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
+            bottom: 18px;
+            z-index: 50;
+            max-width: min(520px, 92vw);
+            pointer-events: none;
+        }
+        .toast-item {
+            background: rgba(17, 24, 39, 0.92);
+            color: rgba(255, 255, 255, 0.95);
+            padding: 10px 14px;
+            border-radius: 14px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.18);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
     </style>
 </head>
 <body class="flex flex-col h-screen overflow-hidden">
@@ -43,15 +63,24 @@
         <div class="bg-gray-100 p-1 rounded-xl flex gap-1">
             <select id="modelPicker" class="bg-transparent text-sm font-bold text-gray-700 px-3 py-1 outline-none cursor-pointer">
                 <option value="deepseek">DeepSeek-V3</option>
-                <option value="gemini">Google Gemini</option>
-                <option value="openai">ChatGPT 4o</option>
+                <option value="gemini" disabled>Google Gemini（未接入）</option>
+                <option value="openai" disabled>ChatGPT 4o（未接入）</option>
             </select>
         </div>
     </div>
 
-    <button onclick="location.reload()" class="p-2 hover:bg-gray-100 rounded-full transition">
-        <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-    </button>
+    <div class="flex items-center gap-2">
+        <button id="clearChatBtn" onclick="clearChat()" class="p-2 hover:bg-gray-100 rounded-full transition" title="清空对话">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M8 6v-2h8v2M6 6l1 16h10l1-16"/>
+            </svg>
+        </button>
+        <button onclick="location.reload()" class="p-2 hover:bg-gray-100 rounded-full transition" title="刷新页面">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+        </button>
+    </div>
 </header>
 
 <!-- 对话主容器 -->
@@ -71,7 +100,13 @@
             <textarea id="userInput" rows="1" placeholder="问问我任何事..."
                       class="flex-1 bg-transparent border-none focus:ring-0 p-2 text-gray-700 resize-none max-h-32 overflow-y-auto"></textarea>
 
-        <button id="sendBtn" onclick="handleSend()" class="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-xl transition shadow-md disabled:opacity-50">
+        <button id="stopBtn" onclick="stopGenerating()" class="hidden bg-gray-100 hover:bg-gray-200 text-gray-800 p-3 rounded-xl transition shadow-md">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+            </svg>
+        </button>
+
+        <button id="sendBtn" onclick="handleSend()" class="bg-purple-500 hover:bg-purple-600 text-white p-3 rounded-xl transition shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
         </button>
     </div>
@@ -80,96 +115,214 @@
 
 <script>
     let currentChatId = 'chat_' + Math.random().toString(36).substr(2, 9);
+    let isStreaming = false;
+    let abortController = null;
+
     const chatWindow = document.getElementById('chatWindow');
     const userInput = document.getElementById('userInput');
     const modelPicker = document.getElementById('modelPicker');
+    const sendBtn = document.getElementById('sendBtn');
+    const stopBtn = document.getElementById('stopBtn');
+
+    // Keep values in sync with backend endpoints in `AIApplicationController`
+    const modelRouteMap = {
+        deepseek: '/ai/app/deepseek'
+    };
+
+    function toast(msg) {
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.innerHTML = `<div class="toast-item">${msg}</div>`;
+        document.body.appendChild(el);
+        setTimeout(() => {
+            el.style.opacity = '0';
+            el.style.transition = 'opacity 0.2s ease';
+            setTimeout(() => el.remove(), 200);
+        }, 2400);
+    }
+
+    function setBusy(busy) {
+        isStreaming = busy;
+        sendBtn.disabled = busy;
+        stopBtn.classList.toggle('hidden', !busy);
+        userInput.disabled = busy;
+    }
+
+    function getCurrentModelLabel() {
+        const opt = modelPicker.options[modelPicker.selectedIndex];
+        if (!opt) return 'DeepSeek';
+        return opt.textContent.replace(/\s*\（.*\）\s*/g, '').trim();
+    }
+
+    function updateModelName() {
+        const span = document.getElementById('currentModelName');
+        if (span) span.innerText = getCurrentModelLabel();
+    }
+
+    function autoResizeTextarea() {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 128) + 'px';
+    }
+
+    // Clear UI and reset chat id
+    function clearChat() {
+        if (isStreaming) return;
+        currentChatId = 'chat_' + Math.random().toString(36).substr(2, 9);
+        chatWindow.innerHTML = `
+            <div class="flex items-end gap-2 message-fade">
+                <div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs shadow-lg">AI</div>
+                <div class="max-w-[80%] bg-white p-4 rounded-2xl rounded-bl-none shadow-sm border border-gray-100 text-gray-800 leading-relaxed">
+                    你好！我是你的多维 AI 助手。我已经准备好回答关于 <span id="currentModelName" class="text-purple-600 font-bold">${getCurrentModelLabel()}</span> 的任何问题了。
+                </div>
+            </div>
+        `;
+        updateModelName();
+    }
+
+    // Expose for onclick on clear button
+    window.clearChat = clearChat;
 
     // 监听模型切换
-    modelPicker.addEventListener('change', (e) => {
-        document.getElementById('currentModelName').innerText = e.target.options[e.target.selectedIndex].text;
-        // 切换模型时通常建议重置对话ID
-        currentChatId = 'chat_' + Math.random().toString(36).substr(2, 9);
+    modelPicker.addEventListener('change', () => {
+        updateModelName();
+        // Switch model => reset conversation for better clarity.
+        if (chatWindow.children.length > 1) {
+            toast('已切换模型，开始新的对话');
+        }
+        clearChat();
     });
 
     async function handleSend() {
+        if (isStreaming) return;
         const text = userInput.value.trim();
         if (!text) return;
+
+        const route = modelRouteMap[modelPicker.value];
+        if (!route) {
+            toast('该模型暂未接入，当前仅支持 DeepSeek');
+            return;
+        }
 
         // 1. UI: 用户消息
         appendMessage('user', text);
         userInput.value = '';
-        userInput.style.height = 'auto';
+        autoResizeTextarea();
 
         // 2. UI: 初始化 AI 消息框（显示加载动画）
-        const loadingId = appendMessage('ai', '<div class="flex gap-1" id="loading-dots"><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div><div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div></div>');
-        const messageElement = document.getElementById(loadingId);
+        const aiId = appendMessage('ai', '');
+        const messageElement = document.getElementById(aiId);
+        messageElement.innerHTML = `
+            <div class="flex gap-1" aria-label="loading">
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></div>
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.2s]"></div>
+                <div class="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0.4s]"></div>
+            </div>
+        `;
 
-        let fullContent = ""; // 存储累计的文本
-
+        let fullContent = ''; // store cumulative streaming text
         try {
-            const modelType = modelPicker.value;
-            const response = await fetch(`/ai/app/${modelType}?message=${encodeURIComponent(text)}&chatId=${currentChatId}`);
+            setBusy(true);
+            abortController = new AbortController();
 
-            if (!response.ok) throw new Error("网络请求失败");
+            const response = await fetch(`${route}?message=${encodeURIComponent(text)}&chatId=${currentChatId}`, {
+                signal: abortController.signal
+            });
+
+            if (!response.ok) {
+                let errText = '';
+                try {
+                    errText = await response.text();
+                } catch (_) {}
+                throw new Error(errText || '网络请求失败');
+            }
 
             // 3. 读取流数据
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
 
-            // 移除加载动画，准备接收文本
-            messageElement.innerHTML = "";
+            // Remove loader, start receiving text
+            messageElement.textContent = '';
 
             while (true) {
                 const { value, done } = await reader.read();
                 if (done) break;
 
-                // 解码当前数据块
+                // Decode current chunk
                 const chunk = decoder.decode(value, { stream: true });
-
-                // SSE 处理逻辑：如果后端返回的是标准 SSE (data: xxx)，需要正则提取
-                // 如果后端 Flux 直接写的 String 内容，则直接累加
                 fullContent += chunk;
 
-                // 实时更新 UI
-                messageElement.innerText = fullContent;
+                // Real-time UI update
+                messageElement.textContent = fullContent;
                 chatWindow.scrollTop = chatWindow.scrollHeight;
             }
-
         } catch (error) {
             console.error(error);
-            updateMessage(loadingId, "连接中断，请稍后重试。");
+            if (error && error.name === 'AbortError') {
+                updateMessage(aiId, fullContent ? fullContent : '已停止生成。');
+                return;
+            }
+            updateMessage(aiId, '连接中断，请稍后重试。');
+            toast('生成失败，请检查后端服务或稍后再试');
+        } finally {
+            abortController = null;
+            setBusy(false);
         }
     }
 
-    function appendMessage(role, content) {
-        const id = 'msg_' + Date.now();
+    function stopGenerating() {
+        if (!isStreaming) return;
+        if (abortController) abortController.abort();
+    }
+
+    window.stopGenerating = stopGenerating;
+
+    function appendMessage(role, text) {
+        const id = 'msg_' + Date.now() + '_' + Math.random().toString(16).slice(2);
         const isUser = role === 'user';
-        const html = `
-                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-2 message-fade">
-                    ${!isUser ? '<div class="w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs shadow-lg">AI</div>' : ''}
-                    <div id="${id}" class="max-w-[80%] p-4 rounded-2xl ${isUser ? 'bg-purple-600 text-white rounded-br-none shadow-purple-100' : 'bg-white text-gray-800 rounded-bl-none border border-gray-100 shadow-sm'}">
-                        ${content}
-                    </div>
-                </div>
-            `;
-        chatWindow.insertAdjacentHTML('beforeend', html);
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `flex ${isUser ? 'justify-end' : 'justify-start'} items-end gap-2 message-fade`;
+
+        if (!isUser) {
+            const avatar = document.createElement('div');
+            avatar.className = 'w-8 h-8 rounded-lg bg-purple-500 flex items-center justify-center text-white text-xs shadow-lg';
+            avatar.textContent = 'AI';
+            wrapper.appendChild(avatar);
+        }
+
+        const bubble = document.createElement('div');
+        bubble.id = id;
+        bubble.className = `max-w-[80%] p-4 rounded-2xl ${
+            isUser
+                ? 'bg-purple-600 text-white rounded-br-none shadow-purple-100'
+                : 'bg-white text-gray-800 rounded-bl-none border border-gray-100 shadow-sm'
+        }`;
+        bubble.textContent = text || '';
+
+        wrapper.appendChild(bubble);
+        chatWindow.appendChild(wrapper);
         chatWindow.scrollTop = chatWindow.scrollHeight;
         return id;
     }
 
     function updateMessage(id, content) {
         const el = document.getElementById(id);
-        if (el) el.innerHTML = content;
+        if (el) el.textContent = content;
         chatWindow.scrollTop = chatWindow.scrollHeight;
     }
 
     // 回车发送 (Shift+Enter换行)
     userInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        const wantsSend = (e.key === 'Enter' && !e.shiftKey) || ((e.key === 'Enter') && (e.ctrlKey || e.metaKey));
+        if (wantsSend) {
             e.preventDefault();
             handleSend();
         }
     });
+
+    // Autogrow textarea
+    userInput.addEventListener('input', autoResizeTextarea);
+    autoResizeTextarea();
 </script>
 </body>
 </html>

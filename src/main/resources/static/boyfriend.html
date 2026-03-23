@@ -60,15 +60,23 @@
         <button id="actionBtn" onclick="handleAction()" class="bg-[#07c160] text-white px-4 py-2 rounded-lg text-sm font-medium transition-all active:opacity-70">
             你先说
         </button>
+        <button id="stopBtn" onclick="stopGenerating()" class="hidden bg-white border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm font-medium transition-all active:opacity-70">
+            <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+            </svg>
+        </button>
     </div>
 </footer>
 
 <script>
     // 核心逻辑控制
     let interactionLocked = false;
+    let isStreaming = false;
+    let abortController = null;
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const actionBtn = document.getElementById('actionBtn');
+    const stopBtn = document.getElementById('stopBtn');
     const API_URL = '/ai/app/boyfriend';
     const chatId = 'boy_' + Math.random().toString(36).substr(2, 9);
 
@@ -85,6 +93,7 @@
     });
 
     async function handleAction() {
+        if (isStreaming) return;
         const text = userInput.value.trim();
         const currentBtnText = actionBtn.innerText;
 
@@ -105,13 +114,21 @@
     }
 
     async function sendRequest(msg) {
+        if (isStreaming) return;
         const wrapper = appendMessage('ai', '');
         const contentDiv = wrapper.querySelector('.content');
         contentDiv.innerHTML = '<span class="typing-dot"></span><span class="typing-dot" style="animation-delay: 0.2s"></span><span class="typing-dot" style="animation-delay: 0.4s"></span>';
 
         try {
+            isStreaming = true;
+            userInput.disabled = true;
+            actionBtn.disabled = true;
+            actionBtn.style.opacity = '0.7';
+            stopBtn.classList.toggle('hidden', false);
+
+            abortController = new AbortController();
             const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
-            const response = await fetch(url);
+            const response = await fetch(url, { signal: abortController.signal });
             if (!response.ok) throw new Error('请求失败');
 
             const reader = response.body.getReader();
@@ -126,8 +143,24 @@
             }
         } catch (err) {
             console.error(err);
-            contentDiv.innerHTML = '<span class="text-red-500 text-[10px]">林深去忙了，稍后再试</span>';
+            if (err && err.name === 'AbortError') {
+                contentDiv.innerHTML = '<span class="text-gray-600 text-[10px]">已停止发送。</span>';
+            } else {
+                contentDiv.innerHTML = '<span class="text-red-500 text-[10px]">林深去忙了，稍后再试</span>';
+            }
+        } finally {
+            isStreaming = false;
+            abortController = null;
+            userInput.disabled = false;
+            actionBtn.disabled = false;
+            actionBtn.style.opacity = '1';
+            stopBtn.classList.toggle('hidden', true);
         }
+    }
+
+    function stopGenerating() {
+        if (!isStreaming) return;
+        if (abortController) abortController.abort();
     }
 
     function appendMessage(role, text) {
