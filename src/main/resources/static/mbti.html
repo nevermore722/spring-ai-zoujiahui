@@ -177,6 +177,13 @@
             const res = await fetch(`${API}?chatId=${chatId}&message=${encodeURIComponent(msg)}`, {
                 signal: abortController.signal
             });
+            if (!res.ok) {
+                let errText = '';
+                try {
+                    errText = await res.text();
+                } catch (_) {}
+                throw new Error(errText || '命中敏感内容');
+            }
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
             let result = "";
@@ -191,7 +198,7 @@
             if (e && e.name === 'AbortError') {
                 document.getElementById('q-text').innerText = "已停止探测。";
             } else {
-                document.getElementById('q-text').innerText = "星际信号中断，请重试。";
+                document.getElementById('q-text').innerText = (e && e.message) ? e.message : "星际信号中断，请重试。";
             }
         } finally {
             grid.style.opacity = "1";

@@ -1,0 +1,18 @@
+# Chinese sensitive/unsafe keywords.
+# Supported formats:
+#  - keyword
+#  - category|keyword
+#  - category:keyword
+#
+# NOTE: keep this list conservative to reduce false positives.
+
+诈骗
+赌博
+毒品
+钓鱼
+盗号
+勒索
+木马
+黑客
+买枪
+开挂

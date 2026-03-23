@@ -261,8 +261,9 @@
                 updateMessage(aiId, fullContent ? fullContent : '已停止生成。');
                 return;
             }
-            updateMessage(aiId, '连接中断，请稍后重试。');
-            toast('生成失败，请检查后端服务或稍后再试');
+            const msg = (error && error.message) ? error.message : '连接中断，请稍后重试。';
+            updateMessage(aiId, msg);
+            toast(msg);
         } finally {
             abortController = null;
             setBusy(false);

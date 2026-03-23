@@ -121,7 +121,13 @@
             abortController = new AbortController();
             const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
             const response = await fetch(url, { signal: abortController.signal });
-            if (!response.ok) throw new Error();
+            if (!response.ok) {
+                let errText = '';
+                try {
+                    errText = await response.text();
+                } catch (_) {}
+                throw new Error(errText || '命中敏感内容');
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -137,7 +143,9 @@
             if (err && err.name === 'AbortError') {
                 contentDiv.innerHTML = '<span class="text-pink-700 text-xs italic">已停止回复。</span>';
             } else {
-                contentDiv.innerHTML = '<span class="text-pink-300 text-xs italic">云汐正在午睡，稍后再找她吧~</span>';
+                const msg = (err && err.message) ? err.message : '云汐正在午睡，稍后再找她吧~';
+                contentDiv.textContent = msg;
+                contentDiv.style.color = '#f472b6';
             }
         } finally {
             isStreaming = false;

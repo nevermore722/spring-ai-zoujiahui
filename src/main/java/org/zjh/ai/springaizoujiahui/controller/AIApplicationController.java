@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.zjh.ai.springaizoujiahui.security.SensitiveContentValidator;
 import org.zjh.ai.springaizoujiahui.service.FortuneTelling;
 import org.zjh.ai.springaizoujiahui.service.FriendsChat;
 import org.zjh.ai.springaizoujiahui.service.GeneralAI;
@@ -31,35 +32,49 @@ public class AIApplicationController {
 
     private final SixteenPersonalities sixteenPersonalities;
 
-    public AIApplicationController(FortuneTelling fortuneTelling, FriendsChat friendsChat, GeneralAI generalAI, SixteenPersonalities sixteenPersonalities) {
+    private final SensitiveContentValidator sensitiveContentValidator;
+
+    public AIApplicationController(
+            FortuneTelling fortuneTelling,
+            FriendsChat friendsChat,
+            GeneralAI generalAI,
+            SixteenPersonalities sixteenPersonalities,
+            SensitiveContentValidator sensitiveContentValidator
+    ) {
         this.fortuneTelling = fortuneTelling;
         this.friendsChat = friendsChat;
         this.generalAI = generalAI;
         this.sixteenPersonalities = sixteenPersonalities;
+        this.sensitiveContentValidator = sensitiveContentValidator;
     }
 
     @GetMapping(value = "/fortuneTelling", produces = "text/html;charset=UTF-8")
     public Flux<String> streamHistory(@RequestParam(value = "message", defaultValue = "我要算命") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
         return fortuneTelling.chat(message, chatId);
     }
 
     @GetMapping(value = "/boyfriend", produces = "text/html;charset=UTF-8")
     public Flux<String> boyfriend(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
         return friendsChat.boyfriend(message, chatId);
     }
 
     @GetMapping(value = "/girlfriend", produces = "text/html;charset=UTF-8")
     public Flux<String> girlfriend(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
         return friendsChat.girlfriend(message, chatId);
     }
 
     @GetMapping(value = "/deepseek", produces = "text/html;charset=UTF-8")
     public Flux<String> deepseek(@RequestParam(value = "message", defaultValue = "你好") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
         return generalAI.deepseek(message, chatId);
     }
 
     @GetMapping(value = "/startTesting", produces = "text/html;charset=UTF-8")
     public Flux<String> startTesting(@RequestParam(value = "message", defaultValue = "开始测试") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
         return sixteenPersonalities.startTesting(message, chatId);
     }
 }

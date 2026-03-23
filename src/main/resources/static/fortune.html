@@ -271,7 +271,13 @@
             const response = await fetch(`${API_URL}?chatId=${chatId}&message=${encodeURIComponent(text)}`, {
                 signal: abortController.signal
             });
-            if (!response.ok) throw new Error();
+            if (!response.ok) {
+                let errText = '';
+                try {
+                    errText = await response.text();
+                } catch (_) {}
+                throw new Error(errText || '命中敏感内容');
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -287,7 +293,9 @@
             if (err && err.name === 'AbortError') {
                 aiMsgContent.innerHTML = `<span class="text-blue-300 text-xs">已停止占卜。</span>`;
             } else {
-                aiMsgContent.innerHTML = `<span class="text-red-400">星轨扰动，请重新连接星辰。</span>`;
+                const msg = (err && err.message) ? err.message : '星轨扰动，请重新连接星辰。';
+                aiMsgContent.innerText = msg;
+                aiMsgContent.style.color = '#f87171';
             }
         } finally {
             aiMsgContent.classList.remove('typing');

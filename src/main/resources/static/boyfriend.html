@@ -129,7 +129,13 @@
             abortController = new AbortController();
             const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
             const response = await fetch(url, { signal: abortController.signal });
-            if (!response.ok) throw new Error('请求失败');
+            if (!response.ok) {
+                let errText = '';
+                try {
+                    errText = await response.text();
+                } catch (_) {}
+                throw new Error(errText || '命中敏感内容');
+            }
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -146,7 +152,9 @@
             if (err && err.name === 'AbortError') {
                 contentDiv.innerHTML = '<span class="text-gray-600 text-[10px]">已停止发送。</span>';
             } else {
-                contentDiv.innerHTML = '<span class="text-red-500 text-[10px]">林深去忙了，稍后再试</span>';
+                const msg = (err && err.message) ? err.message : '林深去忙了，稍后再试';
+                contentDiv.textContent = msg;
+                contentDiv.style.color = '#ef4444';
             }
         } finally {
             isStreaming = false;
