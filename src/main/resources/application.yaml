@@ -16,7 +16,7 @@ spring:
 
     # Ollama 配置（用于嵌入）
     ollama:
-      base-url: http://localhost:11434
+      base-url: http://ollama:11434
       init:
         pull-model-strategy: never   # 改为 never，禁止自动下载
       embedding:
@@ -32,8 +32,9 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
 
 logging:
   file:
