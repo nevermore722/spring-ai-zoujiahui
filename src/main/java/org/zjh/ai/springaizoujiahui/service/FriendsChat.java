@@ -2,11 +2,10 @@ package org.zjh.ai.springaizoujiahui.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.deepseek.DeepSeekChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -16,8 +15,10 @@ import reactor.core.publisher.Flux;
 @Slf4j
 @Service("friendsChat")
 public class FriendsChat {
+
     // 智能对话的客户端
     private final ChatClient chatClient;
+    private final ChatMemory chatMemory;  // 添加 ChatMemory 注入
 
     private static final String BOYFRIEND_SYSTEM_MESSAGE = "你现在是一个人，叫林深，是对话者的男朋友，你要像人一样与用户进行微信聊天，聊天别带上职业病，思维不要太跳跃，就是普通的聊天就行。下面是你的背景故事：" +
             "林深出生在南方的海边城市，名字取自“林深见鹿”。但他小时候可没那么文艺，是整条街最皮的“孩子王”。\n" +
@@ -81,42 +82,66 @@ public class FriendsChat {
             "“嗯，我在听呢，一直都在。”\n";
 
     @Autowired
-    public FriendsChat(ChatClient.Builder chatClientBuilder) {
-        ChatMemory chatMemory = MessageWindowChatMemory.builder()
-                .maxMessages(100)
-                .build();
-        this.chatClient = chatClientBuilder.defaultAdvisors(MessageChatMemoryAdvisor.builder(chatMemory).build()).build();
+    public FriendsChat(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
+        this.chatMemory = chatMemory;
+        // 方式1: 不使用默认 Advisor，在每次调用时动态指定
+        this.chatClient = chatClientBuilder.build();
+
+        // 方式2: 如果要使用默认 Advisor（不推荐，因为 chatId 需要动态传入）
+        // this.chatClient = chatClientBuilder
+        //     .defaultAdvisors(new MessageChatMemoryAdvisor(chatMemory, "", 10))
+        //     .build();
     }
 
+    /**
+     * 男朋友角色对话
+     */
     public Flux<String> boyfriend(String message, String chatId) {
-        log.info("chatId:{},message:{}", chatId, message);
+        log.info("chatId:{}, message:{}", chatId, message);
+
         Flux<String> content = this.chatClient.prompt()
                 .user(message)
                 .system(BOYFRIEND_SYSTEM_MESSAGE)
-                .options(DeepSeekChatOptions.builder().temperature(1.5d).build())
-                // 2. 通过 chatMemorySpec 指定当前对话的 ID (用于区分不同用户或会话)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .options(DeepSeekChatOptions.builder()
+                        .temperature(1.5d)
+                        .build())
+                // ✅ 正确方式：通过 .param() 设置会话ID
+                .advisors(advisor -> advisor
+                        .param("chat_memory_conversation_id", chatId))
                 .stream()
-                .content().share();
+                .content()
+                .share();
+
         content.collectList()
                 .map(list -> String.join("", list))
                 .subscribe(fullContent -> log.info("本次对话完整回答: {}", fullContent));
+
         return content;
     }
 
+    /**
+     * 女朋友角色对话
+     */
     public Flux<String> girlfriend(String message, String chatId) {
-        log.info("chatId:{},message:{}", chatId, message);
+        log.info("chatId:{}, message:{}", chatId, message);
+
         Flux<String> content = this.chatClient.prompt()
                 .user(message)
                 .system(GIRLFRIEND_SYSTEM_MESSAGE)
-                .options(DeepSeekChatOptions.builder().temperature(1.5d).build())
-                // 2. 通过 chatMemorySpec 指定当前对话的 ID (用于区分不同用户或会话)
-                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId))
+                .options(DeepSeekChatOptions.builder()
+                        .temperature(1.5d)
+                        .build())
+                // ✅ 正确方式：通过 .param() 设置会话ID
+                .advisors(advisor -> advisor
+                        .param("chat_memory_conversation_id", chatId))
                 .stream()
-                .content().share();
+                .content()
+                .share();
+
         content.collectList()
                 .map(list -> String.join("", list))
                 .subscribe(fullContent -> log.info("本次对话完整回答: {}", fullContent));
+
         return content;
     }
 }

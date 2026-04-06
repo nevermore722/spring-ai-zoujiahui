@@ -1,13 +1,44 @@
 spring:
   application:
     name: spring-ai-zoujiahui
+
   ai:
+    # DeepSeek 专用配置
+    model:
+      embedding: ollama  # 使用 Ollama 作为嵌入模型
     deepseek:
-      api-key: 'sk-54aa6dc632a1413dac9e3cd9236b3381'
-      base-url: 'https://api.deepseek.com'
+      api-key: ${DEEPSEEK_API_KEY}  # 从环境变量读取
+      base-url: https://api.deepseek.com
+      chat:
+        options:
+          model: deepseek-chat
+          temperature: 0.7
+
+    # Ollama 配置（用于嵌入）
+    ollama:
+      base-url: http://localhost:11434
+      init:
+        pull-model-strategy: never   # 改为 never，禁止自动下载
+      embedding:
+        options:
+          model: nomic-embed-text     # 确保用的是嵌入模型，不是 mistral
+
+    # Redis 向量存储配置
+    vectorstore:
+      redis:
+        initialize-schema: true
+        index-name: my-knowledge
+        prefix: "doc:"
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
 logging:
   file:
-    name: ./logs/spring-ai.log  # 日志将保存在项目根目录下的 logs 文件夹中
+    name: ./logs/spring-ai.log
+
 server:
   address: 0.0.0.0
   port: 8080
