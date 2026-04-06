@@ -32,11 +32,16 @@ public class GirlfriendRagService {
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(question)
                 .topK(5)
-                .similarityThreshold(0.3)
+                .similarityThreshold(0.2)
                 .build();
 
         var relevantDocs = vectorStore.similaritySearch(searchRequest);
         log.info("检索到 {} 个相关文档", relevantDocs.size());
+
+        // 打印检索到的内容
+        for (var doc : relevantDocs) {
+            log.info("检索片段: {}", doc.getText());
+        }
 
         String context = relevantDocs.stream()
                 .map(doc -> doc.getText())

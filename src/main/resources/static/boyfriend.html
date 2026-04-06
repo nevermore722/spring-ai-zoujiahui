@@ -13,12 +13,9 @@
             left: 0;
             width: 100%;
             height: 100%;
-            /* 采用温暖的米白色与浅咖色渐变 */
             background: linear-gradient(160deg, #fdfbfb 0%, #ebedee 100%);
             z-index: -2;
         }
-
-        /* 同时建议微调 .bg-overlay 增加透明质感 */
         .bg-overlay {
             position: fixed;
             top: 0;
@@ -37,6 +34,30 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .typing-dot { width: 4px; height: 4px; background: #999; border-radius: 50%; display: inline-block; animation: blink 1.4s infinite both; margin: 0 1px; }
         @keyframes blink { 0%, 100% { opacity: .2; } 20% { opacity: 1; } }
+
+        /* 模式切换开关样式 */
+        .mode-switch {
+            background: #e8e8e8;
+            border-radius: 30px;
+            padding: 3px;
+            display: flex;
+            gap: 4px;
+        }
+        .mode-option {
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-option.active {
+            background: #07c160;
+            color: white;
+        }
+        .mode-option:not(.active) {
+            color: #666;
+        }
     </style>
 </head>
 <body class="flex flex-col bg-gray-100">
@@ -49,7 +70,11 @@
         <div class="font-bold text-gray-800">林深 👔</div>
         <div class="text-[10px] text-green-500">● 对方正在想你</div>
     </div>
-    <div class="w-6"></div>
+    <!-- 模式切换按钮放在右上角 -->
+    <div class="mode-switch">
+        <span class="mode-option active" data-mode="normal">普通</span>
+        <span class="mode-option" data-mode="rag">智能</span>
+    </div>
 </header>
 
 <main id="chatBox" class="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar"></main>
@@ -69,7 +94,29 @@
 </footer>
 
 <script>
-    // 核心逻辑控制
+    // ==================== 新增：模式切换 ====================
+    let currentMode = 'normal';  // 'normal' 或 'rag'
+
+    // 获取API地址
+    function getApiUrl() {
+        return currentMode === 'normal' ? '/ai/app/boyfriend' : '/ai/app/boyfriend/rag';
+    }
+
+    // 绑定模式切换事件
+    const modeOptions = document.querySelectorAll('.mode-option');
+    modeOptions.forEach(opt => {
+        opt.addEventListener('click', function() {
+            if (isStreaming) {
+                alert('请等待当前对话结束后再切换模式');
+                return;
+            }
+            modeOptions.forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+            currentMode = this.dataset.mode;
+        });
+    });
+
+    // ==================== 原有逻辑（基本不变，只改了API地址）====================
     let interactionLocked = false;
     let isStreaming = false;
     let abortController = null;
@@ -77,10 +124,8 @@
     const userInput = document.getElementById('userInput');
     const actionBtn = document.getElementById('actionBtn');
     const stopBtn = document.getElementById('stopBtn');
-    const API_URL = '/ai/app/boyfriend';
     const chatId = 'boy_' + Math.random().toString(36).substr(2, 9);
 
-    // 监听输入：一旦互动过，文案永远锁定为“发送”
     userInput.addEventListener('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
@@ -97,15 +142,12 @@
         const text = userInput.value.trim();
         const currentBtnText = actionBtn.innerText;
 
-        // 只要点击一次，从此锁定为发送模式
         interactionLocked = true;
         actionBtn.innerText = "发送";
 
         if (currentBtnText === "你先说" && text === "") {
-            // 情况1：用户直接点“你先说”
             await sendRequest("跟我说说话吧。");
         } else if (text !== "") {
-            // 情况2：用户输入了文字发送
             appendMessage('user', text);
             userInput.value = '';
             userInput.style.height = 'auto';
@@ -127,7 +169,8 @@
             stopBtn.classList.toggle('hidden', false);
 
             abortController = new AbortController();
-            const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
+            // 关键修改：使用动态API地址
+            const url = `${getApiUrl()}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
             const response = await fetch(url, { signal: abortController.signal });
             if (!response.ok) {
                 let errText = '';
@@ -177,7 +220,6 @@
 
         const avatar = document.createElement('img');
         avatar.className = `w-10 h-10 rounded-md object-cover flex-shrink-0 shadow-sm`;
-        // 头像路径：确保 static 目录下有这两个文件
         avatar.src = role === 'ai' ? '/boy.jfif' : '/girl.jfif';
 
         const bubble = document.createElement('div');
@@ -192,7 +234,6 @@
             wrapper.appendChild(avatar);
             wrapper.appendChild(bubble);
         } else {
-            // 用户消息：气泡在左，头像在右
             wrapper.appendChild(bubble);
             wrapper.appendChild(avatar);
         }

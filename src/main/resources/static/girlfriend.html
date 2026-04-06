@@ -27,6 +27,30 @@
         .typing-dot { width: 4px; height: 4px; background: #fca5a5; border-radius: 50%; display: inline-block; animation: blink 1.4s infinite both; margin: 0 1px; }
         @keyframes blink { 0%, 100% { opacity: .2; } 20% { opacity: 1; } }
         .no-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* 模式切换开关样式 */
+        .mode-switch {
+            background: #f0e0e0;
+            border-radius: 30px;
+            padding: 3px;
+            display: flex;
+            gap: 4px;
+        }
+        .mode-option {
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mode-option.active {
+            background: #f472b6;
+            color: white;
+        }
+        .mode-option:not(.active) {
+            color: #a8556d;
+        }
     </style>
 </head>
 <body class="flex flex-col">
@@ -39,7 +63,11 @@
         <div class="font-bold text-gray-800 tracking-wide">云汐 🌸</div>
         <div class="text-[10px] text-pink-400 animate-pulse">● 正在想你...</div>
     </div>
-    <div class="w-6"></div>
+    <!-- 模式切换按钮放在右上角 -->
+    <div class="mode-switch">
+        <span class="mode-option active" data-mode="normal">普通</span>
+        <span class="mode-option" data-mode="rag">智能</span>
+    </div>
 </header>
 
 <main id="chatBox" class="flex-1 overflow-y-auto p-4 space-y-6 no-scrollbar pb-10"></main>
@@ -63,14 +91,36 @@
 </footer>
 
 <script>
-    let interactionLocked = false; // 状态锁
+    // ==================== 新增：模式切换 ====================
+    let currentMode = 'normal';  // 'normal' 或 'rag'
+
+    // 获取API地址
+    function getApiUrl() {
+        return currentMode === 'normal' ? '/ai/app/girlfriend' : '/ai/app/girlfriend/rag';
+    }
+
+    // 绑定模式切换事件
+    const modeOptions = document.querySelectorAll('.mode-option');
+    modeOptions.forEach(opt => {
+        opt.addEventListener('click', function() {
+            if (isStreaming) {
+                alert('请等待当前对话结束后再切换模式');
+                return;
+            }
+            modeOptions.forEach(o => o.classList.remove('active'));
+            this.classList.add('active');
+            currentMode = this.dataset.mode;
+        });
+    });
+
+    // ==================== 原有逻辑（基本不变，只改了API地址）====================
+    let interactionLocked = false;
     let isStreaming = false;
     let abortController = null;
     const chatBox = document.getElementById('chatBox');
     const userInput = document.getElementById('userInput');
     const actionBtn = document.getElementById('actionBtn');
     const stopBtn = document.getElementById('stopBtn');
-    const API_URL = '/ai/app/girlfriend';
     const chatId = 'girl_' + Math.random().toString(36).substr(2, 9);
 
     // 监听输入逻辑：互动后永远显示“发送”
@@ -119,7 +169,8 @@
             stopBtn.classList.toggle('hidden', false);
 
             abortController = new AbortController();
-            const url = `${API_URL}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
+            // 关键修改：使用动态API地址
+            const url = `${getApiUrl()}?chatId=${chatId}&message=${encodeURIComponent(msg)}`;
             const response = await fetch(url, { signal: abortController.signal });
             if (!response.ok) {
                 let errText = '';
@@ -167,7 +218,6 @@
 
         const avatar = document.createElement('img');
         avatar.className = `w-10 h-10 rounded-full object-cover flex-shrink-0 border-2 border-white shadow-sm`;
-        // 头像路径：AI是女生，用户是男生
         avatar.src = role === 'ai' ? '/girl.jfif' : '/boy.jfif';
 
         const bubble = document.createElement('div');
@@ -182,7 +232,6 @@
             wrapper.appendChild(avatar);
             wrapper.appendChild(bubble);
         } else {
-            // 用户消息：头像在右边
             wrapper.appendChild(bubble);
             wrapper.appendChild(avatar);
         }
