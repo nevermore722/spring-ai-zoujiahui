@@ -1,16 +1,15 @@
 package org.zjh.ai.springaizoujiahui.controller;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.zjh.ai.springaizoujiahui.security.SensitiveContentValidator;
 import org.zjh.ai.springaizoujiahui.service.FortuneTelling;
 import org.zjh.ai.springaizoujiahui.service.FriendsChat;
 import org.zjh.ai.springaizoujiahui.service.GeneralAI;
 import org.zjh.ai.springaizoujiahui.service.SixteenPersonalities;
 import reactor.core.publisher.Flux;
+
+import java.util.Map;
 
 /**
  * AI应用构造器
@@ -83,5 +82,36 @@ public class AIApplicationController {
     public Flux<String> startTesting(@RequestParam(value = "message", defaultValue = "开始测试") String message, @RequestParam String chatId) {
         sensitiveContentValidator.validateOrThrow(message);
         return sixteenPersonalities.startTesting(message, chatId);
+    }
+
+    /**
+     * 清除指定会话
+     */
+    @DeleteMapping("/{chatId}")
+    public Map<String, Object> clearSession(@PathVariable String chatId) {
+        friendsChat.clearSession(chatId);
+        return Map.of("success", true, "message", "会话已清除: " + chatId);
+    }
+
+    /**
+     * 清除所有过期会话
+     */
+    @PostMapping("/clean-expired")
+    public Map<String, Object> cleanExpired() {
+        int count = friendsChat.clearExpiredSessions();
+        return Map.of("success", true, "cleanedCount", count);
+    }
+
+    /**
+     * 获取所有活跃会话
+     */
+    @GetMapping("/active")
+    public Map<String, Object> getActiveSessions() {
+        var sessions = friendsChat.getActiveSessions();
+        return Map.of(
+                "success", true,
+                "count", sessions.size(),
+                "sessions", sessions
+        );
     }
 }

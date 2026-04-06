@@ -7,6 +7,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -19,7 +20,7 @@ public class RagService {
     private final ChatClient chatClient;
     private final VectorStore vectorStore;
 
-    public RagService(ChatClient.Builder chatClientBuilder, VectorStore vectorStore) {
+    public RagService(ChatClient.Builder chatClientBuilder, @Qualifier("boyfriendVectorStore")VectorStore vectorStore) {
         this.chatClient = chatClientBuilder.build();
         this.vectorStore = vectorStore;
         log.info("RAG 服务初始化完成");

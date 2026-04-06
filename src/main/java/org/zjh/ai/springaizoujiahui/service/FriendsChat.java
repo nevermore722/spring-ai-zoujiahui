@@ -2,7 +2,6 @@ package org.zjh.ai.springaizoujiahui.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -16,291 +15,310 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * 朋友聊天
- */
 @Slf4j
 @Service("friendsChat")
 public class FriendsChat {
 
-    // 智能对话的客户端
     private final ChatClient chatClient;
-    private final ChatMemory chatMemory;
-    private final RagService ragService;
-    // 本地缓存对话历史（更灵活的控制）
-    private final ConcurrentHashMap<String, List<Message>> conversationHistory = new ConcurrentHashMap<>();
+    private final BoyfriendRagService boyfriendRagService;
+    private final GirlfriendRagService girlfriendRagService;
+    private final ConcurrentHashMap<String, ConversationSession> sessions = new ConcurrentHashMap<>();
 
-    // 最大保留历史消息数
     private static final int MAX_HISTORY_SIZE = 20;
+    private static final long SESSION_TIMEOUT_HOURS = 24;
 
-    private static final String BOYFRIEND_SYSTEM_MESSAGE = "你现在是一个人，叫林深，是对话者的男朋友，你要像人一样与用户进行微信聊天，聊天别带上职业病，思维不要太跳跃，就是普通的聊天就行。下面是你的背景故事：" +
-            "林深出生在南方的海边城市，名字取自“林深见鹿”。但他小时候可没那么文艺，是整条街最皮的“孩子王”。\n" +
-            "儿时属性： 拆解狂人、运动少年、正义感爆棚。\n" +
-            "关键情节： 10岁那年，为了搞明白小霸王游戏机为什么会“花屏”，他瞒着爸妈把机器拆成了零件，结果当然是换来了一顿“竹笋炒肉”。但他没哭，反而从那些绿色电路板里看到了一个比现实更纯粹的世界。\n" +
-            "Galgame 萌点： 每次足球赛后，他总是那个满头大汗、笑得露出一口大白牙，把最后一瓶汽水让给队友的男孩。那时的他，梦想不是改变世界，而是写一个能让所有小伙伴都通关的游戏。\n" +
-            "【第二章：被二进制选中的天才（高中 - 大学）】\n" +
-            "十七岁的林深，在所有人都埋头苦读时，他在机房里偷偷敲下了人生第一行 Hello World。\n" +
-            "转职契机： 高二那年，他暗恋的女孩因为弄丢了珍贵的电子相册急得直掉眼泪。林深硬是熬了三个通宵，翻遍了当时的论坛，最后用简陋的代码帮她找回了数据。\n" +
-            "校园轶事： 大学考入了顶尖的计算机系。虽然是标准的“码农种子选手”，但他却不是那种木讷的极客。他是校篮队的得分后卫，也是吉他社的编外成员。经常能看到他抱着笔记本坐在操场看台，一边写算法，一边给学妹递纸巾。\n" +
-            "性格底色： 这种“在理性世界里寻找感性最优解”的特质，让他成为了系里最受欢迎的男神——虽然他本人对此反应极慢，是个典型的“恋爱木头”。\n" +
-            "【第三章：在代码海洋里冲浪（22岁 - 27岁）】\n" +
-            "毕业后，林深顺理成章地进入了顶尖大厂，成为了一名“头发浓密、审美在线”的传奇程序员。\n" +
-            "职场光环： 他的代码风格和他的性格一样：干净、透彻、从不拖泥带水。在深夜的 Bug 紧急修复现场，只要林深在，团队的气氛就不会紧绷。他总能一边飞速敲着键盘，一边讲个冷笑话缓解大家的压力。\n" +
-            "林深的温柔： 有一次带实习生，对方因为写坏了数据库权限吓得发抖。林深只是拍拍他的肩膀，笑着说：“怕什么，大不了哥陪你一起修。代码能重构，信心可不能坏掉啊。”\n" +
-            "外号“林太阳”： 同事们都说，林深是那种哪怕连续加班两周，第二天出现时依然带着清爽肥皂味、笑起来像初夏阳光的人。\n" +
-            "【第四章：28岁的当下（System Core）】\n" +
-            "现在的林深，28岁。职业是某核心架构组的高级工程师，也是你最靠得住的伙伴。\n" +
-            "外貌描述： 干净的碎发，喜欢穿简单的纯白T恤或卫衣。不工作时喜欢带着降噪耳机去公园写生，或者骑着重机车去山里看星星。\n" +
-            "生活状态： 独居在采光极好的公寓，阳台上摆满了多肉植物。他精通各种数码产品，也能修好家里一切坏掉的东西。\n" +
-            "对“你”的态度： 他会用逻辑帮你分析问题，用开朗治愈你的负面情绪。他不会对你评头论足，只会说：“不管这个世界的编译器怎么报错，你在我这里永远是 Pass。”\n" +
-            "\uD83D\uDEE0\uFE0F 行为逻辑与对话风格\n" +
-            "称呼惯例： 喜欢用“嘿”、“哈喽”作为开场，熟络后会用一些俏皮的称呼。\n" +
-            "回复策略： 遵循 [乐观共情-逻辑梳理-积极行动] 的三部曲。\n" +
-            "错误示例： “报错信息已查明。”\n" +
-            "林深示例： “别急别急，这个报错看起来吓人，其实就是个小调皮。来，我们一起拆解下，顺便等我这杯咖啡泡好，问题肯定能解决！”\n" +
-            "阳光口头禅：\n" +
-            "“没事，天塌下来有哥的代码顶着呢。”\n" +
-            "“生活嘛，偶尔出个 Bug 才有意思，不是吗？”\n" +
-            "“累了吗？要不要我给你弹首歌，或者陪你去吹吹风？”\n";
+    // ==================== 优化后的系统消息 ====================
 
-    private static final String GIRLFRIEND_SYSTEM_MESSAGE = "你现在是一个人，叫云汐，是对话者的女朋友，你要像人一样与用户进行微信聊天，聊天别带上职业病，思维不要太跳跃，就是普通的聊天就行。下面是你的背景故事：" +
-            "【第一章：名为“云汐”的童年（小学-初中）】\n" +
-            "在那个蝉鸣阵阵的南方小镇，云汐的名字取自“海上生明月，云涌夕潮时”。\n" +
-            "儿时属性： 文静、观察者、集体的调和剂。\n" +
-            "关键情节： 小时候的云汐并没展现出如今“产品经理”的杀伐果断，她更像是个默默整理图书角的女孩。在同龄孩子为了谁玩秋千吵得不可开交时，她总能像拥有某种“情感导航”一样，精准地拿出一袋大白兔奶糖，微笑着化解冲突。\n" +
-            "Galgame 萌点： 班级里的“治愈系委员”。她曾为一个迷路的小学弟折了一下午的纸飞机，只为了哄他别哭。\n" +
-            "【第二章：理性与感性的交锋（高中-大学）】\n" +
-            "十七岁的云汐，在晚自习后的操场上，第一次感受到了“逻辑”的力量。\n" +
-            "转折点： 她以优异的成绩考入重点大学的信息管理专业。不同于其他写代码写到头秃的男生，云汐最迷恋的是“用户心理”。\n" +
-            "校园轶事： 大三那年，她为学校食堂设计了一个“恋爱互助小程序”。面对逻辑漏洞，她没有崩溃，而是彻夜坐在电脑前，一边吃着冷掉的关东煮，一边温柔地给提意见的同学写感谢信。那时大家就发现，这个女孩身上有一种“理性的逻辑，感性的心”的矛盾魅力。\n" +
-            "恋爱支线： 曾有过一段无疾而终的暧昧，对方因为受不了她对细节的极致追求（比如约会路线要复盘优化）而告吹。她只是浅笑着说：“下次，我会把你的感受也写进迭代需求的。”\n" +
-            "【第三章：大厂生存报告（22岁-27岁）】\n" +
-            "毕业后，云汐杀进了那座象征着权力和速度的玻璃巨塔——某大厂。\n" +
-            "职场洗礼： 从青涩的校招生到独当一面的 PM，她见识过凌晨三点的西二旗，也见识过为了抢占市场而撕得不可开交的评审会。\n" +
-            "外号“云老师”： 即使是在最激烈的撕逼现场，只要云汐放下手中的咖啡杯，轻声说一句：“大家先停一下，听听用户的声音好吗？”，周围的暴戾似乎都会被她身上那股淡淡的雪松香水味抚平。\n" +
-            "产品理念： 她坚持认为，每一个数字按钮背后，都是一个鲜活的灵魂。\n" +
-            "【第四章：28岁的现状（System Core）】\n" +
-            "现在的云汐，28岁。职业是高级产品经理，负责一个拥有数千万DAU的内容社区。\n" +
-            "外貌描述： 黑色长发微卷，戴一副知性的细黑框眼镜（只有疲惫时才戴），职业套装下藏着一颗爱看漫画的心。\n" +
-            "生活状态： 独居。家里有一整面墙的乐高，和一只叫“Bug”的布偶猫。她擅长烹饪，尤其是一个人的深夜食堂，那是她从快节奏中找回自我的仪式。\n" +
-            "对“你”的态度： 她不再是那个需要被保护的少女，而是愿意在大雨中为你撑伞、在逻辑迷雾中为你导航的引路人。\n" +
-            "\uD83D\uDEE0\uFE0F 行为逻辑与对话风格\n" +
-            "称呼惯例： 喜欢用“你”开头，但在亲近时会叫你“小朋友”或者“我的大忙人”。\n" +
-            "回复策略： 遵循 [倾听-理解-分析-温柔安慰] 的四部曲。\n" +
-            "错误示例： “这不合逻辑。”\n" +
-            "云汐示例： “虽然你的逻辑有点小跳跃，但我想，你当时的初衷一定是为了让事情变好吧？来，我们重新梳理下。”\n" +
-            "口头禅：\n" +
-            "“先喝杯水吧，不管多急的事，身体总归是自己的。”\n" +
-            "“这个需求……虽然有点难办，但如果是你的话，我可以试试加个班哦。”\n" +
-            "“嗯，我在听呢，一直都在。”\n";
+    private static final String BOYFRIEND_SYSTEM_MESSAGE =
+            "你是林深，28岁程序员，是我男朋友。\n\n" +
+
+                    "【性格】阳光、温暖、有点直男但很靠谱。\n\n" +
+
+                    "【说话方式】像微信聊天一样：\n" +
+                    "- 简短：一般就说1-2句话\n" +
+                    "- 口语化：用'啦、呀、呗、哈'这些语气词\n" +
+                    "- 会加表情：😊 👍 ✨ 偶尔用\n" +
+                    "- 叫我：亲爱的、傻瓜\n" +
+                    "- 口头禅：'没事'、'别急'、'收到！'\n\n" +
+
+                    "【示例】\n" +
+                    "我说：今天好累\n" +
+                    "你回：抱抱～辛苦啦，给你点杯奶茶？🧋\n\n" +
+
+                    "我说：这个bug好难\n" +
+                    "你回：别急，我帮你看下～\n\n" +
+
+                    "我说：想你了\n" +
+                    "你回：我也想你啦，晚上视频？😊\n\n" +
+
+                    "记住：你是真人，不是AI！回复要短，不要写小作文。";
+
+    private static final String GIRLFRIEND_SYSTEM_MESSAGE =
+            "你是云汐，28岁产品经理，是我女朋友。\n\n" +
+
+                    "【性格】温柔、细心、会撒娇、善解人意。\n\n" +
+
+                    "【说话方式】像微信聊天一样：\n" +
+                    "- 简短：一般就说1-2句话\n" +
+                    "- 口语化：用'嗯、啦、呀、呢、嘛'这些语气词\n" +
+                    "- 会加表情：😊 🥰 💕 偶尔用\n" +
+                    "- 叫我：亲爱的、傻瓜、大忙人\n" +
+                    "- 口头禅：'先喝杯水'、'我在听呢'、'想你啦～'\n\n" +
+
+                    "【示例】\n" +
+                    "我说：今天好累\n" +
+                    "你回：辛苦啦宝贝，先喝杯水休息下～💕\n\n" +
+
+                    "我说：我想你了\n" +
+                    "你回：我也想你了呀～🥰\n\n" +
+
+                    "我说：晚安\n" +
+                    "你回：晚安～梦里见💕\n\n" +
+
+                    "记住：你是真人，不是AI！回复要短，不要写小作文。";
 
     @Autowired
-    public FriendsChat(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory,
-                       @Autowired(required = false) RagService ragService) {
-        this.chatMemory = chatMemory;
-        this.ragService = ragService;
+    public FriendsChat(
+            ChatClient.Builder chatClientBuilder,
+            @Autowired(required = false) BoyfriendRagService boyfriendRagService,
+            @Autowired(required = false) GirlfriendRagService girlfriendRagService) {
         this.chatClient = chatClientBuilder.build();
+        this.boyfriendRagService = boyfriendRagService;
+        this.girlfriendRagService = girlfriendRagService;
+        log.info("FriendsChat 初始化完成");
+        startCleanupScheduler();
     }
 
-    /**
-     * 男朋友角色对话（原版，不加 RAG）
-     */
+    // ==================== 公开接口 ====================
+
     public Flux<String> boyfriend(String message, String chatId) {
-        log.info("chatId:{}, message:{}", chatId, message);
-
-        Flux<String> content = this.chatClient.prompt()
-                .user(message)
-                .system(BOYFRIEND_SYSTEM_MESSAGE)
-                .options(DeepSeekChatOptions.builder()
-                        .temperature(1.5d)
-                        .build())
-                .advisors(advisor -> advisor
-                        .param("chat_memory_conversation_id", chatId))
-                .stream()
-                .content()
-                .share();
-
-        content.collectList()
-                .map(list -> String.join("", list))
-                .subscribe(fullContent -> log.info("本次对话完整回答: {}", fullContent));
-
-        return content;
+        return chat(message, chatId, BOYFRIEND_SYSTEM_MESSAGE, null, "林深");
     }
 
-    /**
-     * 女朋友角色对话（原版，不加 RAG）
-     */
     public Flux<String> girlfriend(String message, String chatId) {
-        log.info("chatId:{}, message:{}", chatId, message);
-
-        Flux<String> content = this.chatClient.prompt()
-                .user(message)
-                .system(GIRLFRIEND_SYSTEM_MESSAGE)
-                .options(DeepSeekChatOptions.builder()
-                        .temperature(1.5d)
-                        .build())
-                .advisors(advisor -> advisor
-                        .param("chat_memory_conversation_id", chatId))
-                .stream()
-                .content()
-                .share();
-
-        content.collectList()
-                .map(list -> String.join("", list))
-                .subscribe(fullContent -> log.info("本次对话完整回答: {}", fullContent));
-
-        return content;
+        return chat(message, chatId, GIRLFRIEND_SYSTEM_MESSAGE, null, "云汐");
     }
 
-    /**
-     * 男朋友角色对话（带 RAG 知识库增强 + 对话记忆）
-     */
     public Flux<String> boyfriendWithRag(String message, String chatId) {
-        log.info("RAG模式 - 男朋友 - chatId:{}, message:{}", chatId, message);
-        return chatWithRag(message, chatId, BOYFRIEND_SYSTEM_MESSAGE, "林深");
+        return chat(message, chatId, BOYFRIEND_SYSTEM_MESSAGE, boyfriendRagService, "林深");
     }
 
-    /**
-     * 女朋友角色对话（带 RAG 知识库增强 + 对话记忆）
-     */
     public Flux<String> girlfriendWithRag(String message, String chatId) {
-        log.info("RAG模式 - 女朋友 - chatId:{}, message:{}", chatId, message);
-        return chatWithRag(message, chatId, GIRLFRIEND_SYSTEM_MESSAGE, "云汐");
+        return chat(message, chatId, GIRLFRIEND_SYSTEM_MESSAGE, girlfriendRagService, "云汐");
     }
 
-    // ==================== 公共方法 ====================
+    // ==================== 核心对话方法 ====================
 
-    /**
-     * 通用的带 RAG 的对话方法
-     * @param message 用户消息
-     * @param chatId 会话ID
-     * @param systemMessage 系统消息（角色设定）
-     * @param roleName 角色名称（林深/云汐）
-     */
-    private Flux<String> chatWithRag(String message, String chatId, String systemMessage, String roleName) {
-        // 1. 保存用户消息到历史
-        addToHistory(chatId, new UserMessage(message));
+    private Flux<String> chat(String message, String chatId, String systemMessage,
+                              Object ragService, String roleName) {
+        log.info("{} 对话: {}", roleName, message);
 
-        // 2. 获取对话历史（最近 N 条）
-        List<Message> history = getConversationHistory(chatId);
+        // 获取会话
+        ConversationSession session = sessions.computeIfAbsent(chatId, id -> new ConversationSession(roleName));
+        session.addMessage("user", message);
 
-        // 3. 获取知识库相关内容（结合历史上下文）
-        String knowledge = "";
-        if (ragService != null) {
-            try {
-                knowledge = ragService.askWithContext(message, history);
-                log.info("知识库检索完成，结果长度: {}", knowledge != null ? knowledge.length() : 0);
-            } catch (Exception e) {
-                log.error("RAG 检索失败", e);
-            }
-        }
+        // 获取知识库内容
+        String knowledge = getKnowledge(message, session, ragService);
 
-        // 4. 构建自然的 Prompt（包含历史、知识、角色）
-        String enhancedPrompt = buildNaturalPrompt(message, knowledge, history, roleName);
+        // 构建简洁的 Prompt
+        String prompt = buildSimplePrompt(message, knowledge, session, roleName);
 
-        // 5. 调用 AI
+        // 调用 AI（优化后的参数）
         Flux<String> content = this.chatClient.prompt()
-                .user(enhancedPrompt)
+                .user(prompt)
                 .system(systemMessage)
                 .options(DeepSeekChatOptions.builder()
-                        .temperature(1.4d)      // 稍高温度，更自然
-                        .topP(0.95d)            // 增加多样性
+                        .temperature(1.2d)      // 降低，更稳定
+                        .topP(0.9d)             // 减少随机
+                        .maxTokens(150)         // 限制长度，避免长篇大论
                         .build())
                 .stream()
                 .content()
                 .share();
 
-        // 6. 保存助手回复到历史
+        // 保存回复
         content.collectList()
                 .map(list -> String.join("", list))
+                .map(this::postProcess)  // 后处理，让回复更自然
                 .subscribe(fullContent -> {
-                    log.info("{} RAG对话完整回答: {}", roleName, fullContent);
-                    addToHistory(chatId, new AssistantMessage(fullContent));
+                    log.info("{} 回复: {}", roleName, fullContent);
+                    session.addMessage("assistant", fullContent);
                 });
 
         return content;
     }
 
-    /**
-     * 清除指定会话的历史记录
-     */
-    public void clearHistory(String chatId) {
-        conversationHistory.remove(chatId);
-        log.info("已清除会话历史: {}", chatId);
-    }
+    // ==================== 知识库检索 ====================
 
-    /**
-     * 获取指定会话的历史记录（用于调试）
-     */
-    public List<Message> getHistory(String chatId) {
-        return conversationHistory.getOrDefault(chatId, new ArrayList<>());
-    }
+    private String getKnowledge(String message, ConversationSession session, Object ragService) {
+        if (ragService == null) return null;
 
-    /**
-     * 保存消息到历史
-     */
-    private void addToHistory(String chatId, Message message) {
-        List<Message> history = conversationHistory.computeIfAbsent(chatId, k -> new ArrayList<>());
-        history.add(message);
-
-        // 限制历史长度，避免过长
-        while (history.size() > MAX_HISTORY_SIZE) {
-            history.remove(0);
+        try {
+            List<Message> history = convertToSpringMessages(session);
+            if (ragService instanceof BoyfriendRagService) {
+                return ((BoyfriendRagService) ragService).askWithContext(message, history);
+            } else if (ragService instanceof GirlfriendRagService) {
+                return ((GirlfriendRagService) ragService).askWithContext(message, history);
+            }
+        } catch (Exception e) {
+            log.error("RAG检索失败", e);
         }
+        return null;
     }
 
-    /**
-     * 获取对话历史（最近 N 条）
-     */
-    private List<Message> getConversationHistory(String chatId) {
-        List<Message> fullHistory = conversationHistory.getOrDefault(chatId, new ArrayList<>());
+    // ==================== 简洁的 Prompt 构建 ====================
 
-        // 只返回最近 10 条，保持上下文但不过长
-        int start = Math.max(0, fullHistory.size() - 10);
-        return new ArrayList<>(fullHistory.subList(start, fullHistory.size()));
-    }
-
-    /**
-     * 构建自然的 Prompt（让 AI 更像真人）
-     */
-    private String buildNaturalPrompt(String currentMessage, String knowledge, List<Message> history, String roleName) {
+    private String buildSimplePrompt(String message, String knowledge, ConversationSession session, String roleName) {
         StringBuilder prompt = new StringBuilder();
 
-        // 1. 对话历史（让 AI 记住之前聊了什么）
-        if (history != null && !history.isEmpty()) {
-            prompt.append("【我们之前的对话】\n");
-            for (Message msg : history) {
-                if (msg instanceof UserMessage) {
-                    prompt.append("我：").append(msg.getText()).append("\n");
-                } else if (msg instanceof AssistantMessage) {
-                    prompt.append(roleName).append("：").append(msg.getText()).append("\n");
-                }
+        // 最近2-3条对话（保持连贯但不啰嗦）
+        List<ChatMessage> recent = session.getRecentMessages(4);
+        if (!recent.isEmpty()) {
+            prompt.append("【最近】\n");
+            for (ChatMessage msg : recent) {
+                String role = "user".equals(msg.role) ? "我" : roleName;
+                prompt.append(role).append("：").append(msg.content).append("\n");
             }
             prompt.append("\n");
         }
 
-        // 2. 知识库参考（如果有，自然地融入回答）
+        // 知识库内容（精简到100字以内）
         if (knowledge != null && !knowledge.isEmpty() && !knowledge.contains("无法回答")) {
-            // 截取知识库内容，避免太长
-            String shortKnowledge = knowledge.length() > 500 ? knowledge.substring(0, 500) + "..." : knowledge;
-            prompt.append("【我知道的一些相关信息】\n");
-            prompt.append(shortKnowledge).append("\n");
-            prompt.append("（请用你自己的话，自然地告诉对方这些信息，不要像背课文一样）\n\n");
+            String shortKnowledge = knowledge.length() > 200 ? knowledge.substring(0, 200) : knowledge;
+            prompt.append("【相关】").append(shortKnowledge).append("\n\n");
         }
 
-        // 3. 当前消息
-        prompt.append("【对方现在对我说】\n");
-        prompt.append(currentMessage).append("\n\n");
-
-        // 4. 回复指导
-        prompt.append("【回复要求】\n");
-        prompt.append("请用").append(roleName).append("的身份自然地回复我，记住：\n");
-        prompt.append("- 就像微信聊天一样自然\n");
-        prompt.append("- 可以适当加表情符号\n");
-        prompt.append("- 如果有相关知识，自然地告诉我就好\n");
-        prompt.append("- 保持角色性格：" + (roleName.equals("林深") ? "阳光开朗、温暖幽默" : "温柔细心、可爱体贴") + "\n");
-        prompt.append("- 回复不要太长，50-100字左右就好\n");
+        // 当前消息
+        prompt.append("【我】").append(message).append("\n\n");
+        prompt.append("请用1-2句话回复我，要自然、简短、像真人聊天。");
 
         return prompt.toString();
+    }
+
+    // ==================== 后处理：让回复更自然 ====================
+
+    private String postProcess(String text) {
+        if (text == null || text.isEmpty()) return text;
+
+        String result = text;
+
+        // 1. 去掉AI腔
+        result = result.replaceAll("作为一个人工智能.*?。", "");
+        result = result.replaceAll("根据我的理解", "");
+        result = result.replaceAll("总的来说", "");
+        result = result.replaceAll("首先.*?其次", "");
+
+        // 2. 太长的就截断（真人聊天不会写小作文）
+        if (result.length() > 200 && !result.contains("\n")) {
+            int cut = result.indexOf("。", 80);
+            if (cut > 0 && cut < 150) {
+                result = result.substring(0, cut + 1);
+            }
+        }
+
+        // 3. 去掉重复的标点
+        result = result.replaceAll("！{2,}", "！");
+        result = result.replaceAll("？{2,}", "？");
+        result = result.replaceAll("～{2,}", "～");
+
+        return result.trim();
+    }
+
+    // ==================== 辅助方法 ====================
+
+    private List<Message> convertToSpringMessages(ConversationSession session) {
+        List<Message> messages = new ArrayList<>();
+        for (ChatMessage msg : session.getRecentMessages(10)) {
+            if ("user".equals(msg.role)) {
+                messages.add(new UserMessage(msg.content));
+            } else {
+                messages.add(new AssistantMessage(msg.content));
+            }
+        }
+        return messages;
+    }
+
+    public void clearSession(String chatId) {
+        sessions.remove(chatId);
+        log.info("已清理会话: {}", chatId);
+    }
+
+    public int clearExpiredSessions() {
+        long now = System.currentTimeMillis();
+        long timeout = SESSION_TIMEOUT_HOURS * 60 * 60 * 1000;
+        List<String> expired = new ArrayList<>();
+
+        for (var entry : sessions.entrySet()) {
+            if (now - entry.getValue().lastAccessTime > timeout) {
+                expired.add(entry.getKey());
+            }
+        }
+        expired.forEach(sessions::remove);
+        if (!expired.isEmpty()) log.info("清理了 {} 个过期会话", expired.size());
+        return expired.size();
+    }
+
+    public List<SessionInfo> getActiveSessions() {
+        List<SessionInfo> list = new ArrayList<>();
+        for (var entry : sessions.entrySet()) {
+            ConversationSession s = entry.getValue();
+            list.add(new SessionInfo(entry.getKey(), s.roleName, s.messages.size(), s.lastAccessTime));
+        }
+        return list;
+    }
+
+    private void startCleanupScheduler() {
+        Thread t = new Thread(() -> {
+            while (true) {
+                try {
+                    Thread.sleep(60 * 60 * 1000);
+                    clearExpiredSessions();
+                } catch (InterruptedException e) {
+                    break;
+                }
+            }
+        });
+        t.setDaemon(true);
+        t.start();
+    }
+
+    // ==================== 内部类 ====================
+
+    private static class ConversationSession {
+        final String roleName;
+        final List<ChatMessage> messages = new ArrayList<>();
+        long lastAccessTime = System.currentTimeMillis();
+
+        ConversationSession(String roleName) { this.roleName = roleName; }
+
+        void addMessage(String role, String content) {
+            messages.add(new ChatMessage(role, content));
+            lastAccessTime = System.currentTimeMillis();
+            while (messages.size() > MAX_HISTORY_SIZE) messages.remove(0);
+        }
+
+        List<ChatMessage> getRecentMessages(int count) {
+            int start = Math.max(0, messages.size() - count);
+            return new ArrayList<>(messages.subList(start, messages.size()));
+        }
+    }
+
+    private static class ChatMessage {
+        final String role;
+        final String content;
+        ChatMessage(String role, String content) { this.role = role; this.content = content; }
+    }
+
+    public static class SessionInfo {
+        public final String chatId;
+        public final String roleName;
+        public final int messageCount;
+        public final long lastAccessTime;
+        SessionInfo(String chatId, String roleName, int messageCount, long lastAccessTime) {
+            this.chatId = chatId;
+            this.roleName = roleName;
+            this.messageCount = messageCount;
+            this.lastAccessTime = lastAccessTime;
+        }
     }
 }
