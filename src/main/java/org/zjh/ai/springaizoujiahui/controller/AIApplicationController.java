@@ -55,10 +55,22 @@ public class AIApplicationController {
         return friendsChat.boyfriend(message, chatId);
     }
 
+    @GetMapping(value = "/boyfriend/rag", produces = "text/html;charset=UTF-8")
+    public Flux<String> chatWithBoyfriendRag(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
+        return friendsChat.boyfriendWithRag(message, chatId);
+    }
+
     @GetMapping(value = "/girlfriend", produces = "text/html;charset=UTF-8")
     public Flux<String> girlfriend(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
         sensitiveContentValidator.validateOrThrow(message);
         return friendsChat.girlfriend(message, chatId);
+    }
+
+    @GetMapping(value = "/girlfriend/rag", produces = "text/html;charset=UTF-8")
+    public Flux<String> chatWithGirlfriendRag(@RequestParam(value = "message", defaultValue = "早上好") String message, @RequestParam String chatId) {
+        sensitiveContentValidator.validateOrThrow(message);
+        return friendsChat.girlfriendWithRag(message, chatId);
     }
 
     @GetMapping(value = "/deepseek", produces = "text/html;charset=UTF-8")

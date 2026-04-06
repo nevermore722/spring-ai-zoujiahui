@@ -3,11 +3,18 @@ package org.zjh.ai.springaizoujiahui.service;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.deepseek.DeepSeekChatOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 朋友聊天
@@ -18,7 +25,13 @@ public class FriendsChat {
 
     // 智能对话的客户端
     private final ChatClient chatClient;
-    private final ChatMemory chatMemory;  // 添加 ChatMemory 注入
+    private final ChatMemory chatMemory;
+    private final RagService ragService;
+    // 本地缓存对话历史（更灵活的控制）
+    private final ConcurrentHashMap<String, List<Message>> conversationHistory = new ConcurrentHashMap<>();
+
+    // 最大保留历史消息数
+    private static final int MAX_HISTORY_SIZE = 20;
 
     private static final String BOYFRIEND_SYSTEM_MESSAGE = "你现在是一个人，叫林深，是对话者的男朋友，你要像人一样与用户进行微信聊天，聊天别带上职业病，思维不要太跳跃，就是普通的聊天就行。下面是你的背景故事：" +
             "林深出生在南方的海边城市，名字取自“林深见鹿”。但他小时候可没那么文艺，是整条街最皮的“孩子王”。\n" +
@@ -82,19 +95,15 @@ public class FriendsChat {
             "“嗯，我在听呢，一直都在。”\n";
 
     @Autowired
-    public FriendsChat(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory) {
+    public FriendsChat(ChatClient.Builder chatClientBuilder, ChatMemory chatMemory,
+                       @Autowired(required = false) RagService ragService) {
         this.chatMemory = chatMemory;
-        // 方式1: 不使用默认 Advisor，在每次调用时动态指定
+        this.ragService = ragService;
         this.chatClient = chatClientBuilder.build();
-
-        // 方式2: 如果要使用默认 Advisor（不推荐，因为 chatId 需要动态传入）
-        // this.chatClient = chatClientBuilder
-        //     .defaultAdvisors(new MessageChatMemoryAdvisor(chatMemory, "", 10))
-        //     .build();
     }
 
     /**
-     * 男朋友角色对话
+     * 男朋友角色对话（原版，不加 RAG）
      */
     public Flux<String> boyfriend(String message, String chatId) {
         log.info("chatId:{}, message:{}", chatId, message);
@@ -105,7 +114,6 @@ public class FriendsChat {
                 .options(DeepSeekChatOptions.builder()
                         .temperature(1.5d)
                         .build())
-                // ✅ 正确方式：通过 .param() 设置会话ID
                 .advisors(advisor -> advisor
                         .param("chat_memory_conversation_id", chatId))
                 .stream()
@@ -120,7 +128,7 @@ public class FriendsChat {
     }
 
     /**
-     * 女朋友角色对话
+     * 女朋友角色对话（原版，不加 RAG）
      */
     public Flux<String> girlfriend(String message, String chatId) {
         log.info("chatId:{}, message:{}", chatId, message);
@@ -131,7 +139,6 @@ public class FriendsChat {
                 .options(DeepSeekChatOptions.builder()
                         .temperature(1.5d)
                         .build())
-                // ✅ 正确方式：通过 .param() 设置会话ID
                 .advisors(advisor -> advisor
                         .param("chat_memory_conversation_id", chatId))
                 .stream()
@@ -143,5 +150,157 @@ public class FriendsChat {
                 .subscribe(fullContent -> log.info("本次对话完整回答: {}", fullContent));
 
         return content;
+    }
+
+    /**
+     * 男朋友角色对话（带 RAG 知识库增强 + 对话记忆）
+     */
+    public Flux<String> boyfriendWithRag(String message, String chatId) {
+        log.info("RAG模式 - 男朋友 - chatId:{}, message:{}", chatId, message);
+        return chatWithRag(message, chatId, BOYFRIEND_SYSTEM_MESSAGE, "林深");
+    }
+
+    /**
+     * 女朋友角色对话（带 RAG 知识库增强 + 对话记忆）
+     */
+    public Flux<String> girlfriendWithRag(String message, String chatId) {
+        log.info("RAG模式 - 女朋友 - chatId:{}, message:{}", chatId, message);
+        return chatWithRag(message, chatId, GIRLFRIEND_SYSTEM_MESSAGE, "云汐");
+    }
+
+    // ==================== 公共方法 ====================
+
+    /**
+     * 通用的带 RAG 的对话方法
+     * @param message 用户消息
+     * @param chatId 会话ID
+     * @param systemMessage 系统消息（角色设定）
+     * @param roleName 角色名称（林深/云汐）
+     */
+    private Flux<String> chatWithRag(String message, String chatId, String systemMessage, String roleName) {
+        // 1. 保存用户消息到历史
+        addToHistory(chatId, new UserMessage(message));
+
+        // 2. 获取对话历史（最近 N 条）
+        List<Message> history = getConversationHistory(chatId);
+
+        // 3. 获取知识库相关内容（结合历史上下文）
+        String knowledge = "";
+        if (ragService != null) {
+            try {
+                knowledge = ragService.askWithContext(message, history);
+                log.info("知识库检索完成，结果长度: {}", knowledge != null ? knowledge.length() : 0);
+            } catch (Exception e) {
+                log.error("RAG 检索失败", e);
+            }
+        }
+
+        // 4. 构建自然的 Prompt（包含历史、知识、角色）
+        String enhancedPrompt = buildNaturalPrompt(message, knowledge, history, roleName);
+
+        // 5. 调用 AI
+        Flux<String> content = this.chatClient.prompt()
+                .user(enhancedPrompt)
+                .system(systemMessage)
+                .options(DeepSeekChatOptions.builder()
+                        .temperature(1.4d)      // 稍高温度，更自然
+                        .topP(0.95d)            // 增加多样性
+                        .build())
+                .stream()
+                .content()
+                .share();
+
+        // 6. 保存助手回复到历史
+        content.collectList()
+                .map(list -> String.join("", list))
+                .subscribe(fullContent -> {
+                    log.info("{} RAG对话完整回答: {}", roleName, fullContent);
+                    addToHistory(chatId, new AssistantMessage(fullContent));
+                });
+
+        return content;
+    }
+
+    /**
+     * 清除指定会话的历史记录
+     */
+    public void clearHistory(String chatId) {
+        conversationHistory.remove(chatId);
+        log.info("已清除会话历史: {}", chatId);
+    }
+
+    /**
+     * 获取指定会话的历史记录（用于调试）
+     */
+    public List<Message> getHistory(String chatId) {
+        return conversationHistory.getOrDefault(chatId, new ArrayList<>());
+    }
+
+    /**
+     * 保存消息到历史
+     */
+    private void addToHistory(String chatId, Message message) {
+        List<Message> history = conversationHistory.computeIfAbsent(chatId, k -> new ArrayList<>());
+        history.add(message);
+
+        // 限制历史长度，避免过长
+        while (history.size() > MAX_HISTORY_SIZE) {
+            history.remove(0);
+        }
+    }
+
+    /**
+     * 获取对话历史（最近 N 条）
+     */
+    private List<Message> getConversationHistory(String chatId) {
+        List<Message> fullHistory = conversationHistory.getOrDefault(chatId, new ArrayList<>());
+
+        // 只返回最近 10 条，保持上下文但不过长
+        int start = Math.max(0, fullHistory.size() - 10);
+        return new ArrayList<>(fullHistory.subList(start, fullHistory.size()));
+    }
+
+    /**
+     * 构建自然的 Prompt（让 AI 更像真人）
+     */
+    private String buildNaturalPrompt(String currentMessage, String knowledge, List<Message> history, String roleName) {
+        StringBuilder prompt = new StringBuilder();
+
+        // 1. 对话历史（让 AI 记住之前聊了什么）
+        if (history != null && !history.isEmpty()) {
+            prompt.append("【我们之前的对话】\n");
+            for (Message msg : history) {
+                if (msg instanceof UserMessage) {
+                    prompt.append("我：").append(msg.getText()).append("\n");
+                } else if (msg instanceof AssistantMessage) {
+                    prompt.append(roleName).append("：").append(msg.getText()).append("\n");
+                }
+            }
+            prompt.append("\n");
+        }
+
+        // 2. 知识库参考（如果有，自然地融入回答）
+        if (knowledge != null && !knowledge.isEmpty() && !knowledge.contains("无法回答")) {
+            // 截取知识库内容，避免太长
+            String shortKnowledge = knowledge.length() > 500 ? knowledge.substring(0, 500) + "..." : knowledge;
+            prompt.append("【我知道的一些相关信息】\n");
+            prompt.append(shortKnowledge).append("\n");
+            prompt.append("（请用你自己的话，自然地告诉对方这些信息，不要像背课文一样）\n\n");
+        }
+
+        // 3. 当前消息
+        prompt.append("【对方现在对我说】\n");
+        prompt.append(currentMessage).append("\n\n");
+
+        // 4. 回复指导
+        prompt.append("【回复要求】\n");
+        prompt.append("请用").append(roleName).append("的身份自然地回复我，记住：\n");
+        prompt.append("- 就像微信聊天一样自然\n");
+        prompt.append("- 可以适当加表情符号\n");
+        prompt.append("- 如果有相关知识，自然地告诉我就好\n");
+        prompt.append("- 保持角色性格：" + (roleName.equals("林深") ? "阳光开朗、温暖幽默" : "温柔细心、可爱体贴") + "\n");
+        prompt.append("- 回复不要太长，50-100字左右就好\n");
+
+        return prompt.toString();
     }
 }
